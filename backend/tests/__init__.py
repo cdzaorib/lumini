@@ -1,0 +1,1 @@
+"""Lumini synthetic tests."""

@@ -1,0 +1,84 @@
+name: Foundation checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: lumini_foundation_test
+          POSTGRES_USER: lumini_test
+          POSTGRES_PASSWORD: synthetic-ci-password
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lumini_test -d lumini_foundation_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 127.0.0.1:6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install uv
+        run: python -m pip install uv==0.12.21
+      - name: Install locked dependencies
+        run: uv sync --frozen
+      - name: Lint and formatting
+        run: uv run --frozen ruff check . && uv run --frozen ruff format --check .
+      - name: Types
+        run: uv run --frozen mypy
+      - name: Tests
+        run: uv run --frozen pytest
+      - name: Migrate isolated test database
+        run: uv run --frozen alembic upgrade head && uv run --frozen alembic check
+        env:
+          LUMINI_DATABASE_URL: postgresql://lumini_test:synthetic-ci-password@127.0.0.1:5432/lumini_foundation_test
+      - name: Real service integration tests
+        run: uv run --frozen pytest -m integration
+        env:
+          LUMINI_INTEGRATION_DATABASE_URL: postgresql://lumini_test:synthetic-ci-password@127.0.0.1:5432/lumini_foundation_test
+          LUMINI_INTEGRATION_REDIS_URL: redis://127.0.0.1:6379/0
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.2'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Types
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
