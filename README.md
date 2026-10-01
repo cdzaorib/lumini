@@ -29,7 +29,7 @@ make api
 make web
 ```
 
-API em `http://127.0.0.1:8000`, frontend em `http://127.0.0.1:3000` (somente local). Sem variáveis de conexão, liveness responde 200 e readiness 503. Isso é esperado: a API inicia, mas não afirma que PostgreSQL/Redis estejam disponíveis. No PyCharm selecione `backend/.venv/bin/python`.
+`make check` começa por `make secrets-check` (gitleaks 8.30.1 no histórico Git; binário em `.tools/bin/` ou no PATH, checksum fixado no CI). API em `http://127.0.0.1:8000`, frontend em `http://127.0.0.1:3000` (somente local). Sem variáveis de conexão, liveness responde 200 e readiness 503. Isso é esperado: a API inicia, mas não afirma que PostgreSQL/Redis estejam disponíveis. No VS Code selecione `backend/.venv/bin/python`.
 
 ## Integrações
 

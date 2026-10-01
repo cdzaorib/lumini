@@ -13,7 +13,7 @@ Próxima tarefa: **T08 — reservas transacionais e contrato de calendário** (F
 3. Contrato de calendário atrás de adapter (fake em teste): consulta de disponibilidade, **evento temporário** ao reservar (passo 9 do plano), confirmação após sinal humano, remoção na expiração, reconciliação e falha conservadora sem atomicidade distribuída.
 4. Confirmação de sinal humana e autenticada (rota admin), corrida com expiração na mesma transição condicional; janela mínima de 2h antes do atendimento; cancelamento/reagendamento >24h autoatendimento, ≤24h humano.
 5. Testes de concorrência reais no PostgreSQL. Google Calendar real fica pendente até haver calendários de teste da clínica.
-6. Pendência curta paralela: **T07c** verificação de segredos no CI.
+6. T07c (verificação de segredos) concluída: `make secrets-check` antes de cada commit.
 
 ## Contexto aprovado
 
@@ -24,7 +24,8 @@ O usuário encerrou grill-me, aprovou o plano em `PLANO.md`, alterou backend par
 - **Real local:** backend com **121 unitários + 55 integrações** PostgreSQL/Redis locais (zero skips/warnings com `-W error`); migração `0002` com roundtrip e sem drift; auth Google verificada offline com chaves RSA sintéticas; fluxo de catálogo por HTTP contra PostgreSQL real. Painel `/admin` validado de ponta a ponta no Chrome (12/12 etapas, 0 violações de CSP, 0 erros de console) com API e banco reais e script do Google em stub; script real do Google carregou sob a CSP sem violações; build de produção verde (`VALIDACAO-002.md`).
 - **Mock/sintético:** identidade injetada no backend de teste; stub do script do Google no navegador; principal injetado nos testes de catálogo.
 - **Apenas preparado:** CI com serviços sintéticos (sem execução remota).
-- **Não iniciado:** login Google real, Google Calendar, reservas/agendamento, Evolution, IA, notificações, landing completa, verificação de segredos no CI, deploy.
+- **Não iniciado:** login Google real, Google Calendar, reservas/agendamento, Evolution, IA, notificações, landing completa, deploy.
+- **Verificação de segredos:** gitleaks local verde; job de CI preparado (não executado remotamente).
 - Nenhuma credencial de fornecedor foi carregada/copiada; nenhum fornecedor externo foi chamado com credencial.
 
 ## Atenção para o usuário (afeta configuração futura)

@@ -85,7 +85,7 @@ Presentes em `PLANO-ORIGINAL.md` e ausentes ou só implícitos no resumo acima; 
 - **Fallback do modo humano**: se a PoC mostrar que a Evolution não distingue mensagem humana de automática com confiabilidade, criar mecanismo explícito de pausa operado pelo próprio WhatsApp (sem caixa no painel). → T09.
 - **Restrições de comunicação** por procedimento (matriz, seção 9): campo próprio no conteúdo do serviço, uso interno (guardrails do bot e revisão de publicidade), sob a mesma aprovação. → T07b.
 - **Publicidade de enfermagem**: identificação profissional obrigatória e nenhuma insinuação de resultado; bloqueador de lançamento e insumo da revisão de conteúdo. → T07b/T10.
-- **Verificação de segredos no CI** (Fase 1). → pendente, ainda não implementada.
+- **Verificação de segredos no CI** (Fase 1). → T07c concluída localmente (gitleaks); execução no CI remoto pendente de remoto Git.
 - **Critérios de lançamento adicionais**: Evolution monitorada, processo de reconexão documentado, contatos de Munique e Michele. → Fase 6.
 - **Resumo da conversa e histórico de atendimento humano** como dados armazenados (seção 12), com minimização. → Fases 3–4.
 - **Painel**: configuração de mensagens, recomendações e estado das integrações além do catálogo. → entregues por fase, junto com os respectivos backends.

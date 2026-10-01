@@ -1,6 +1,6 @@
 UV ?= $(if $(wildcard .tools/bin/uv),$(abspath .tools/bin/uv),uv)
 
-.PHONY: install backend-check backend-integration frontend-check check api web
+.PHONY: install backend-check backend-integration frontend-check secrets-check check api web
 
 install:
 	$(UV) sync --project backend --frozen
@@ -21,7 +21,13 @@ frontend-check:
 	cd frontend && npm run typecheck
 	cd frontend && npm run build
 
-check: backend-check frontend-check
+# gitleaks 8.30.1 (checksum in .github/workflows/checks.yml) in PATH or .tools/bin.
+GITLEAKS ?= $(if $(wildcard .tools/bin/gitleaks),$(abspath .tools/bin/gitleaks),gitleaks)
+
+secrets-check:
+	$(GITLEAKS) git --redact --no-banner .
+
+check: secrets-check backend-check frontend-check
 
 api:
 	cd backend && $(UV) run --frozen uvicorn lumini.app:create_app --factory --reload --host 127.0.0.1 --port 8000 --no-access-log
