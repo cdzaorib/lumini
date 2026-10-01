@@ -110,3 +110,24 @@ def test_approval_cannot_forge_actor() -> None:
                 "approved_by": "forged-subject",
             }
         )
+
+
+@pytest.mark.parametrize(("field", "limit"), [("name", 160), ("category", 120), ("slug", 160)])
+def test_service_text_limits_match_database_columns(field: str, limit: int) -> None:
+    value = "a" * limit
+    ServiceCreate.model_validate(service_input(**{field: value}))
+    with pytest.raises(ValidationError):
+        ServiceCreate.model_validate(service_input(**{field: value + "a"}))
+    with pytest.raises(ValidationError):
+        ServiceUpdate.model_validate({"expected_revision": 1, field: value + "a"})
+
+
+def test_communication_restrictions_are_plain_text_and_bounded() -> None:
+    with pytest.raises(ValidationError):
+        ServiceCreate.model_validate(
+            service_input(content={"communication_restrictions": ["<b>synthetic</b>"]})
+        )
+    with pytest.raises(ValidationError):
+        ServiceCreate.model_validate(
+            service_input(content={"communication_restrictions": ["x"] * 21})
+        )

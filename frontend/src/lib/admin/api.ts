@@ -90,6 +90,7 @@ function decodeContent(value: unknown): ServiceContent {
     objectives: list(data.objectives, str), audience: nullable(data.audience), preparation: list(data.preparation, str),
     aftercare: list(data.aftercare, str), human_guidance: nullable(data.human_guidance),
     price_kind: oneOf(data.price_kind, ["fixed", "from", "on_evaluation"] as const),
+    communication_restrictions: list(data.communication_restrictions, str),
   };
 }
 

@@ -89,6 +89,7 @@ def service_payload(*professional_ids: str, **changes: Any) -> dict[str, Any]:
             "aftercare": ["Synthetic approved aftercare"],
             "human_guidance": "Contact the synthetic professional for clinical questions",
             "price_kind": "on_evaluation",
+            "communication_restrictions": ["SYNTHETIC INTERNAL RESTRICTION"],
         },
         "duration_minutes": 45,
         "buffer_minutes": 15,
@@ -159,20 +160,32 @@ async def test_complete_draft_is_hidden_until_human_approval_and_publication(
     assert item["id"] in await public_ids(catalog)
 
 
-async def test_public_catalog_does_not_leak_reviewers_or_internal_credentials(
+async def test_public_catalog_identifies_professional_without_internal_review_data(
     catalog: CatalogClient,
 ) -> None:
     person = await professional(catalog)
     item = await published(catalog, person)
     response = await catalog.http.get("/api/catalog/services")
-    assert item["id"] in {row["id"] for row in response.json()}
+    [public] = [row for row in response.json() if row["id"] == item["id"]]
+    # Nursing advertising must identify the professional (Cofen 554/2017).
+    assert public["professionals"] == [
+        {
+            "id": person["id"],
+            "display_name": "Synthetic professional",
+            "category": "Synthetic category",
+            "council_registration": "SYNTHETIC-ONLY-000",
+        }
+    ]
+    assert "communication_restrictions" not in public["content"]
     for confidential in (
         "reviewer@example.invalid",
         "synthetic-reviewer-subject",
-        "SYNTHETIC-ONLY-000",
+        "SYNTHETIC INTERNAL RESTRICTION",
         "approved_by",
+        "approvals",
         "actor_subject",
-        "council_registration",
+        "credentials_verified",
+        "revision",
     ):
         assert confidential not in response.text
 

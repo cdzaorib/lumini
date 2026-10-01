@@ -101,7 +101,7 @@ a:focus-visible {
   text-transform: uppercase;
   letter-spacing: 0.13em;
 }
-h1 {
+:where(.preparation, .not-found) h1 {
   max-width: 13ch;
   font-family: var(--font-display);
   font-weight: 400;
@@ -196,7 +196,7 @@ h1 {
   .brand-description { font-size: 0.55rem; }
   .preview-label { font-size: 0.62rem; padding: 0.5rem 0.6rem; }
   .preparation { grid-template-columns: 1fr; gap: 3rem; padding-block: 3.4rem; }
-  h1 { max-width: 15ch; font-size: clamp(2.7rem, 9.2vw, 3.8rem); }
+  :where(.preparation, .not-found) h1 { max-width: 15ch; font-size: clamp(2.7rem, 9.2vw, 3.8rem); }
   .eyebrow { font-size: 0.68rem; }
   .light-study { min-height: 0; height: 260px; aspect-ratio: auto; }
   .light-doorway { inset: 14% 25% -70%; }

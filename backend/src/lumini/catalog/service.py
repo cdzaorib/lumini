@@ -19,6 +19,7 @@ from lumini.catalog.schemas import (
     ProfessionalCreate,
     ProfessionalUpdate,
     ProfessionalView,
+    PublicContent,
     PublicProfessional,
     PublicService,
     ServiceContent,
@@ -583,7 +584,9 @@ async def list_public_services(session: AsyncSession) -> list[PublicService]:
                     "name": item.name,
                     "category": item.category,
                     "description": item.description,
-                    "content": content,
+                    "content": PublicContent.model_validate(
+                        content.model_dump(exclude={"communication_restrictions"})
+                    ),
                     "duration_minutes": item.duration_minutes,
                     "buffer_minutes": item.buffer_minutes,
                     "booking_mode": item.booking_mode,
@@ -594,6 +597,7 @@ async def list_public_services(session: AsyncSession) -> list[PublicService]:
                             id=professionals[pid].id,
                             display_name=professionals[pid].display_name,
                             category=professionals[pid].category or "",
+                            council_registration=professionals[pid].council_registration or "",
                         )
                         for pid in linked
                     ],

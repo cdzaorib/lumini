@@ -20,6 +20,7 @@ export type ServiceContent = {
   aftercare: string[];
   human_guidance: string | null;
   price_kind: "fixed" | "from" | "on_evaluation";
+  communication_restrictions: string[];
 };
 
 export type ServiceDraft = {

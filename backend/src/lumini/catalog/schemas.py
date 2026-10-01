@@ -79,12 +79,14 @@ class ServiceContent(InputModel):
     aftercare: list[ClinicalText] = Field(default_factory=list, max_length=20)
     human_guidance: ClinicalText | None = None
     price_kind: Literal["fixed", "from", "on_evaluation"] = "on_evaluation"
+    # Internal: what bot and marketing must not say (e.g. promised results). Never public.
+    communication_restrictions: list[ClinicalText] = Field(default_factory=list, max_length=20)
 
 
 class ServiceCreate(InputModel):
     slug: Slug
     name: ShortText
-    category: ShortText
+    category: CategoryText
     description: LongText | None = None
     content: ServiceContent = Field(default_factory=ServiceContent)
     duration_minutes: Minutes | None = None
@@ -104,7 +106,7 @@ class ServiceCreate(InputModel):
 class ServiceUpdate(VersionRequest):
     slug: Slug | None = None
     name: ShortText | None = None
-    category: ShortText | None = None
+    category: CategoryText | None = None
     description: LongText | None = None
     content: ServiceContent | None = None
     duration_minutes: Minutes | None = None
@@ -145,11 +147,21 @@ class ServiceView(ServiceCreate):
 
 
 class PublicProfessional(BaseModel):
-    """Council registration stays internal until a reviewed public credential field exists."""
+    """Only verified professionals; nursing advertising requires professional identification."""
 
     id: UUID
     display_name: str
     category: str
+    council_registration: str
+
+
+class PublicContent(BaseModel):
+    objectives: list[str]
+    audience: str
+    preparation: list[str]
+    aftercare: list[str]
+    human_guidance: str
+    price_kind: Literal["fixed", "from", "on_evaluation"]
 
 
 class PublicService(BaseModel):
@@ -158,7 +170,7 @@ class PublicService(BaseModel):
     name: str
     category: str
     description: str
-    content: ServiceContent
+    content: PublicContent
     duration_minutes: int
     buffer_minutes: int
     booking_mode: BookingMode

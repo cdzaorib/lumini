@@ -1,6 +1,17 @@
 # Frontend Lumini
 
-Fundação **real local** em Next.js App Router, TypeScript e Tailwind. A rota `/` é uma prévia interna de preparação, sem catálogo, chatbot, agendamento, login ou integração com backend. O link para o site atual é real; não existe captação de dados nesta etapa.
+Fundação **real local** em Next.js App Router, TypeScript e Tailwind. A rota `/` é uma prévia interna de preparação, sem catálogo, chatbot ou agendamento. O link para o site atual é real; não existe captação de dados nesta etapa.
+
+## Painel `/admin`
+
+Catálogo administrativo (profissionais, procedimentos, aprovação e publicação) com login Google. Contrato em `../docs/API-ADMIN.md`, evidências em `../docs/VALIDACAO-002.md`.
+
+| Variável (build) | Uso |
+|---|---|
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Client ID OAuth do Google (`<número>-<id>.apps.googleusercontent.com`); identificador público, não segredo |
+| `NEXT_PUBLIC_API_BASE_URL` | Origem da API: HTTPS; `http://localhost`/`127.0.0.1` só em `next dev` |
+
+Sem as duas, o painel mostra “não configurado” e não carrega o script do Google. A API precisa listar a origem do frontend em `LUMINI_CORS_ORIGINS`. O token do Google fica só em memória; recarregar a aba exige novo login. `src/proxy.ts` aplica CSP com nonce apenas em `/admin` (por isso a rota é dinâmica). `next dev` gera `AGENTS.md`/`CLAUDE.md` nesta pasta, apontando para a documentação do Next em `node_modules/next/dist/docs/`: esta versão difere do Next conhecido de modelos.
 
 ## Executar
 

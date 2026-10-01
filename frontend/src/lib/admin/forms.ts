@@ -32,6 +32,7 @@ export function serviceFields(data: FormData): ServiceDraft {
       objectives: lines(data, "objectives"), audience: optional(data, "audience"), preparation: lines(data, "preparation"),
       aftercare: lines(data, "aftercare"), human_guidance: optional(data, "human_guidance"),
       price_kind: priceKind as ServiceDraft["content"]["price_kind"],
+      communication_restrictions: lines(data, "communication_restrictions"),
     },
     duration_minutes: minutes(data, "duration_minutes", 1), buffer_minutes: minutes(data, "buffer_minutes", 15) ?? 15,
     booking_mode: mode as ServiceDraft["booking_mode"], price_brl: priceKind === "on_evaluation" ? null : amount(data, "price_brl"),

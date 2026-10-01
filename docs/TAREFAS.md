@@ -11,8 +11,9 @@ Atualizar após cada tarefa concluída/bloqueada e apontar detalhes em arquivos 
 | T05 | Sessão Claude, Remote Control e IDE | Concluída com limite de UI | Claude conectado/RC ativo; PyCharm 2026.2.3 instalado/iniciado; primeiro uso e seleção do interpretador não verificados |
 | T06 | Revisão integrada e handoff final do marco | Concluída | TLS/traceback corrigidos; 30 unitários+14 integrações; evidências em `VALIDACAO-001.md` |
 | T07 | Autorização administrativa e aprovação do catálogo — backend | Concluída (real local; Google não validado) | 117 unitários + 55 integrações PostgreSQL/Redis locais; migração 0002 roundtrip sem drift; `API-ADMIN.md`, ADR-010/011 |
-| T07b | Painel administrativo do catálogo (frontend + Google Identity Services) | Próxima | Só existe `frontend/src/lib/admin` (lint/typecheck verdes); falta página, login GIS e CSP |
-| T08 | Reservas transacionais e contrato de calendário | Planejada | Estados, idempotência/outbox, expiração/sinal e testes concorrentes antes de Google real |
+| T07b | Painel administrativo do catálogo (frontend + Google Identity Services) | Concluída (real local; Google real não validado) | `VALIDACAO-002.md`: E2E 12/12 no Chrome, CSP 0 violações (stub e script real), build de produção; 121 unitários + 55 integrações |
+| T07c | Verificação de segredos no CI (Fase 1 do plano integral) | Pendente | Não implementada; escolher ferramenta com versão fixada e validar localmente |
+| T08 | Reservas transacionais e contrato de calendário | Próxima | Estados, idempotência/outbox, expiração/sinal, **evento temporário no calendário** (passo 9 do plano integral) e testes concorrentes antes de Google real |
 | T09 | PoC Evolution e modo humano | Dependente de instância de teste | Provar origem das mensagens; invalidar respostas pendentes; sem número real por enquanto |
 | T10 | IA, experiência pública e piloto | Planejada | Seguir fases 4–6 do plano e seus gates |
 
@@ -53,3 +54,13 @@ Implementado: `lumini/catalog/service.py` (regras: trava advisory, revisão otim
 Testes novos: `tests/test_auth.py` (47) com tokens RS256 assinados por chaves sintéticas geradas no teste e certificados servidos por fake de `requests.get` — assinatura alheia, payload adulterado, aud/iss/exp/iat/nbf/email_verified/hd inválidos, allowlist 403, revogação na próxima requisição, falha fechada sem configuração, falhas de certificado = 503, cache por `max-age`, sem eco de token/exceção. Integração: 15 novos casos (trava advisory provada com segunda conexão, referências desconhecidas, slug duplicado, completude/preço/sinal, idempotência, 404, PATCH sem mudança).
 
 Evidência: `make backend-check` verde (Ruff, format, mypy strict 28 arquivos, **117 unitários**); `pytest -m integration -W error` com PostgreSQL 15.19/Redis 7.0.15 locais sintéticos: **55 passaram**, zero warnings/skips; tabelas vazias e nenhuma trava advisory remanescente ao final. Alembic upgrade→downgrade 0001→upgrade e `alembic check` sem drift no banco `lumini_foundation_test`. Frontend: ESLint e typecheck verdes; **`next build` não executado** para não sobrescrever `.next` do preview em execução na porta 3000 (os arquivos alterados não são importados por página). Mock/não validado: Google real, painel, deploy. Mudanças **não commitadas** (aguardando o usuário).
+
+## 2026-10-01 — Plano integral registrado
+
+Usuário reafirmou que o plano do grill-me é o escopo, com a única troca do backend para Python/FastAPI. Texto integral em `PLANO-ORIGINAL.md`; `PLANO.md` ganhou a lista “Itens do plano integral a não perder” (evento temporário no calendário, fallback do modo humano, restrições de comunicação, publicidade de enfermagem, verificação de segredos no CI, critérios de lançamento extras). Commits locais: `32f4074` (T07) e `f516669` (plano).
+
+## 2026-10-01 — T07b painel concluído (Claude)
+
+Implementado: `/admin` (`src/app/admin/{page,admin-app,professionals,services,ui}.tsx`), login Google Identity Services com token só em memória, cadastro/edição/verificação/revogação de profissionais, cadastro/edição de procedimentos com todos os campos da matriz, pendências de aprovação espelhando o backend, aprovação com confirmação explícita por profissional atribuída, publicação/despublicação, mensagens em PT-BR, foco preservado após ações que removem o próprio botão. `src/proxy.ts`: CSP com nonce só em `/admin` (ADR-012). Backend: campo `communication_restrictions` (interno, nunca público); registro de conselho de profissionais verificadas passou a ser público (Cofen 554/2017, revisão da ADR-011); corrigido limite de categoria do procedimento (schema aceitava 160, coluna tem 120 → 503 em vez de 422). `frontend/AGENTS.md`/`CLAUDE.md` gerados pelo `next dev` foram versionados.
+
+Evidência em `VALIDACAO-002.md`. A prévia da porta 3000 (antes iniciada pelo Codex) foi parada, reconstruída e religada por esta sessão. Ambiente E2E (banco `lumini_e2e_test`, backend de teste, scripts Playwright) ficou fora do Git e foi removido. Não validado: login Google real, HTTPS/deploy, CSP da landing, suíte E2E versionada.
