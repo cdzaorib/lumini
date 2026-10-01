@@ -2,6 +2,8 @@
 
 Status: aprovado pelo usuário em 2026-10-01, com backend revisado para Python/FastAPI. Desenvolvimento autorizado; publicação, compras e configurações em produção ficam para etapa específica.
 
+**Texto integral aprovado: `PLANO-ORIGINAL.md`** — o usuário reafirmou em 2026-10-01 que aquele é o plano a ser feito, com a única troca do backend para Python/FastAPI (Celery no lugar de BullMQ). Este arquivo é o resumo operacional e não reduz aquele escopo.
+
 ## Objetivo e escopo
 
 Substituir `https://lumini-contato.base44.app/` por landing premium/acolhedora com credibilidade clínica, captura de leads como conversão principal, bot no site e WhatsApp, agenda e painel. Público: mulheres interessadas em estética facial/corporal, emagrecimento saudável e saúde integrativa. SEO local: Mangaratiba e Costa Verde/RJ. Lançamento conjunto de landing, bot e calendário após piloto.
@@ -74,6 +76,19 @@ Logo/fotos/depoimentos autorizados; nomes completos/conselhos/especialidades; ca
 Gates: credenciais e conteúdo aprovados, políticas válidas, integrações reais testadas, modo humano confiável, idempotência/concorrência testadas, backups restaurados em teste, fluxo completo validado, responsividade/acessibilidade, autorização final de publicação.
 
 Fora do MVP: pagamento automático, campanhas em massa, diagnóstico/triagem, consulta pelo bot, antes/depois, app móvel, CRM avançado e migração obrigatória imediata à API oficial.
+
+## Itens do plano integral a não perder
+
+Presentes em `PLANO-ORIGINAL.md` e ausentes ou só implícitos no resumo acima; cada um tem fase/tarefa dona.
+
+- **Evento temporário no calendário** ao reservar (passo 9): o hold de 2h também cria evento provisório no Google Calendar, que vira confirmado após o sinal ou é removido na expiração. PostgreSQL continua sendo o estado transacional (ADR-003/008). → T08.
+- **Fallback do modo humano**: se a PoC mostrar que a Evolution não distingue mensagem humana de automática com confiabilidade, criar mecanismo explícito de pausa operado pelo próprio WhatsApp (sem caixa no painel). → T09.
+- **Restrições de comunicação** por procedimento (matriz, seção 9): campo próprio no conteúdo do serviço, uso interno (guardrails do bot e revisão de publicidade), sob a mesma aprovação. → T07b.
+- **Publicidade de enfermagem**: identificação profissional obrigatória e nenhuma insinuação de resultado; bloqueador de lançamento e insumo da revisão de conteúdo. → T07b/T10.
+- **Verificação de segredos no CI** (Fase 1). → pendente, ainda não implementada.
+- **Critérios de lançamento adicionais**: Evolution monitorada, processo de reconexão documentado, contatos de Munique e Michele. → Fase 6.
+- **Resumo da conversa e histórico de atendimento humano** como dados armazenados (seção 12), com minimização. → Fases 3–4.
+- **Painel**: configuração de mensagens, recomendações e estado das integrações além do catálogo. → entregues por fase, junto com os respectivos backends.
 
 ## Referências consultadas no planejamento (revalidar antes de publicar)
 

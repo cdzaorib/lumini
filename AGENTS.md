@@ -2,7 +2,7 @@
 
 ## Antes de começar
 
-Leia `docs/HANDOFF.md`, `docs/PLANO.md` e `docs/DECISOES.md`. Inspecione o Git e os processos antes de assumir trabalho iniciado por outro agente. Este projeto é independente do Tecnoarte; não reutilize dados, segredos, configurações ou infraestrutura daquele projeto.
+Leia `docs/HANDOFF.md`, `docs/PLANO.md`, `docs/PLANO-ORIGINAL.md` (texto integral aprovado; única troca: backend Python/FastAPI) e `docs/DECISOES.md`. Inspecione o Git e os processos antes de assumir trabalho iniciado por outro agente. Este projeto é independente do Tecnoarte; não reutilize dados, segredos, configurações ou infraestrutura daquele projeto.
 
 ## Continuidade obrigatória
 
