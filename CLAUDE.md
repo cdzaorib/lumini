@@ -10,4 +10,4 @@ Leia nesta ordem:
 
 O usuário encerrou a entrevista grill-me, aprovou o plano e pediu continuidade documentada a cada tarefa. Não repetir a entrevista. Atualize handoff e tarefas ao concluir cada unidade de trabalho. Não confunda preparação local com integração externa validada. Antes de editar, confira se Codex/outro agente ainda está trabalhando.
 
-O frontend é Next.js; o backend é Python/FastAPI, trabalhado no PyCharm. A sessão Claude pode funcionar no terminal do VS Code com Remote Control. Credenciais devem ser configuradas fora de arquivos versionados e nunca solicitadas pelo chat.
+O frontend é Next.js; o backend é Python/FastAPI. O usuário escolheu continuar **no VS Code** e dispensou PyCharm como requisito. A sessão Claude pode funcionar com VS Code e Remote Control. Credenciais devem ser configuradas fora de arquivos versionados e nunca solicitadas pelo chat.

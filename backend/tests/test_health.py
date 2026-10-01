@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 import pytest
 from fastapi.testclient import TestClient
+from httpx2 import Response
 
 from lumini.app import create_app, get_resources
 from lumini.resources import Resources, check_dependency
@@ -83,18 +84,24 @@ def test_production_does_not_expose_api_schema_or_documentation() -> None:
         assert client.post("/admin/services", json={}).status_code == 404
 
 
-def test_cors_is_explicit_and_read_only() -> None:
+def preflight(client: TestClient, origin: str, method: str, headers: str = "") -> Response:
+    request_headers = {"Origin": origin, "Access-Control-Request-Method": method}
+    if headers:
+        request_headers["Access-Control-Request-Headers"] = headers
+    return client.options("/api/admin/me", headers=request_headers)
+
+
+def test_cors_is_explicit_bearer_only_and_limited_to_admin_verbs() -> None:
     app = create_app(Settings(cors_origins=["http://localhost:3000"]))
     with TestClient(app) as client:
         allowed = client.get("/health/live", headers={"Origin": "http://localhost:3000"})
         rejected = client.get("/health/live", headers={"Origin": "https://untrusted.invalid"})
-        write = client.options(
-            "/health/live",
-            headers={
-                "Origin": "http://localhost:3000",
-                "Access-Control-Request-Method": "POST",
-            },
-        )
+        write = preflight(client, "http://localhost:3000", "PATCH", "authorization,content-type")
+        foreign = preflight(client, "https://untrusted.invalid", "POST", "authorization")
+        delete = preflight(client, "http://localhost:3000", "DELETE")
+        cookie = preflight(client, "http://localhost:3000", "POST", "cookie")
     assert allowed.headers["access-control-allow-origin"] == "http://localhost:3000"
     assert "access-control-allow-origin" not in rejected.headers
-    assert write.status_code == 400
+    assert write.status_code == 200
+    assert "access-control-allow-credentials" not in write.headers
+    assert foreign.status_code == delete.status_code == cookie.status_code == 400

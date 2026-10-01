@@ -2,8 +2,9 @@
 
 from typing import Literal
 from urllib.parse import parse_qs, urlsplit
+from uuid import UUID
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
@@ -19,6 +20,41 @@ class Settings(BaseSettings):
     redis_url: SecretStr | None = None
     cors_origins: list[str] = Field(default_factory=list)
     dependency_timeout_seconds: float = Field(default=2.0, gt=0, le=10)
+    google_client_id: str | None = Field(default=None, max_length=256)
+    admin_emails: list[str] = Field(default_factory=list, repr=False)
+    reviewer_assignments: dict[str, list[UUID]] = Field(default_factory=dict, repr=False)
+
+    @field_validator("google_client_id")
+    @classmethod
+    def validate_google_client_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value or any(char.isspace() for char in value):
+            raise ValueError("google_client_id must be a nonempty identifier")
+        return value
+
+    @field_validator("admin_emails")
+    @classmethod
+    def normalize_admin_emails(cls, values: list[str]) -> list[str]:
+        return list(dict.fromkeys(normalize_email(value) for value in values))
+
+    @field_validator("reviewer_assignments")
+    @classmethod
+    def normalize_reviewer_assignments(cls, values: dict[str, list[UUID]]) -> dict[str, list[UUID]]:
+        result: dict[str, list[UUID]] = {}
+        for email, ids in values.items():
+            normalized = normalize_email(email)
+            if normalized in result:
+                raise ValueError("reviewer_assignments contains duplicate normalized identities")
+            result[normalized] = list(dict.fromkeys(ids))
+        return result
+
+    @model_validator(mode="after")
+    def validate_reviewer_allowlist(self) -> "Settings":
+        if not self.reviewer_assignments.keys() <= set(self.admin_emails):
+            raise ValueError("reviewer assignments require an allowed administrator")
+        return self
 
     @field_validator("database_url")
     @classmethod
@@ -82,3 +118,18 @@ class Settings(BaseSettings):
         if self.database_url is None:
             return None
         return make_url(self.database_url.get_secret_value()).set(drivername="postgresql+asyncpg")
+
+
+def normalize_email(value: str) -> str:
+    """Conservative identifier normalization, never provider-specific dot/alias rewriting."""
+    normalized = value.strip().lower()
+    parts = normalized.split("@")
+    if (
+        len(normalized) > 254
+        or len(parts) != 2
+        or not all(parts)
+        or any(char.isspace() or ord(char) < 32 for char in normalized)
+        or "." not in parts[1]
+    ):
+        raise ValueError("a valid administrative email is required")
+    return normalized

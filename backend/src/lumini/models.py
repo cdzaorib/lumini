@@ -1,4 +1,4 @@
-"""Catalog schema only. Publication workflows and authorization are not implemented yet."""
+"""Catalog, current-revision approvals and minimal administrative audit events."""
 
 import uuid
 from datetime import datetime
@@ -16,18 +16,22 @@ class Base(DeclarativeBase):
 
 class Professional(Base):
     __tablename__ = "professionals"
+    __table_args__ = (CheckConstraint("revision > 0", name="ck_professionals_revision"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     display_name: Mapped[str] = mapped_column(String(160))
     category: Mapped[str | None] = mapped_column(String(120))
     council_registration: Mapped[str | None] = mapped_column(String(100))
     credentials_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    credentials_verified_by: Mapped[str | None] = mapped_column(String(255))
+    revision: Mapped[int] = mapped_column(Integer, server_default="1")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Service(Base):
     __tablename__ = "services"
     __table_args__ = (
+        CheckConstraint("revision > 0", name="ck_services_revision"),
         CheckConstraint("status IN ('draft', 'approved', 'published')", name="ck_services_status"),
         CheckConstraint(
             "booking_mode IS NULL OR booking_mode IN ('evaluation', 'direct')",
@@ -58,7 +62,8 @@ class Service(Base):
     price_brl: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     deposit_brl: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     status: Mapped[str] = mapped_column(String(20), server_default="draft")
-    approved_by: Mapped[str | None] = mapped_column(String(200))
+    revision: Mapped[int] = mapped_column(Integer, server_default="1")
+    approved_by: Mapped[str | None] = mapped_column(String(255))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -76,3 +81,36 @@ class ProfessionalService(Base):
     service_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("services.id", ondelete="RESTRICT"), primary_key=True
     )
+
+
+class ServiceApproval(Base):
+    __tablename__ = "service_approvals"
+    __table_args__ = (CheckConstraint("revision > 0", name="ck_service_approvals_revision"),)
+
+    service_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("services.id", ondelete="RESTRICT"), primary_key=True
+    )
+    professional_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("professionals.id", ondelete="RESTRICT"), primary_key=True
+    )
+    revision: Mapped[int] = mapped_column(Integer)
+    approved_by: Mapped[str] = mapped_column(String(255))
+    approved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class CatalogAuditEvent(Base):
+    __tablename__ = "catalog_audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "entity_type IN ('professional', 'service')", name="ck_catalog_audit_entity"
+        ),
+        CheckConstraint("revision > 0", name="ck_catalog_audit_revision"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    actor_subject: Mapped[str] = mapped_column(String(255))
+    entity_type: Mapped[str] = mapped_column(String(20))
+    target_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+    action: Mapped[str] = mapped_column(String(60))
+    revision: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

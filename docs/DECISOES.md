@@ -37,3 +37,11 @@ Modo humano persistido inclui versão da conversa; todo envio automático revali
 ## ADR-009 — Retenção e orçamento verificáveis
 
 Lead, consentimentos, agendamentos e auditoria precisam de retenções separadas, sem cascata de exclusão indiscriminada. Filas/outbox carregam IDs e eventos mínimos. Custos incluem todas as tentativas e fallbacks; registrar tokens/latência/custo sem prompts. Meta de R$100–300 será aferida com uso e topologia reais; ainda não validada.
+
+## ADR-010 — Autenticação administrativa por Google ID token (T07)
+
+Painel envia o Google ID token como `Authorization: Bearer`, mantido só em memória; sem cookies/sessão no backend nesta etapa, logo CORS permite GET/POST/PATCH com `Authorization` apenas às origens configuradas e sem credenciais. Backend verifica assinatura/audience/issuer/expiração, `email_verified` e allowlist em toda rota `/api/admin/*`, antes de abrir sessão de banco. Identidade estável é o `sub`; allowlist usa o e-mail. Contas com e-mail externo ao Google (sem `@gmail.com` nem `hd` de Workspace) são recusadas por não haver garantia de posse atual do endereço. Sem bypass de login em runtime; testes injetam verificador/principal via dependência.
+
+## ADR-011 — Fluxo do catálogo serializado e versionado (T07)
+
+Mutações do catálogo ocorrem em uma transação com `pg_advisory_xact_lock` dedicado (baixo volume), seguida de checagem de `expected_revision`. `revision` versiona conteúdo, não workflow; aprovações são por profissional **e** revisão. Edição de serviço, alteração/revogação de profissional e despublicação voltam a rascunho e removem aprovações (conservador). A trava é exclusiva do catálogo: a agenda (T08) precisa de restrição transacional própria, não desta trava. Registro de conselho não é exposto no catálogo público até haver campo público revisado.

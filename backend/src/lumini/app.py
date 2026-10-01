@@ -6,9 +6,13 @@ from contextlib import asynccontextmanager
 from typing import Annotated, Literal, cast
 
 from fastapi import Depends, FastAPI, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from lumini.auth import build_identity_verifier
+from lumini.catalog.router import admin_router, public_router
 from lumini.resources import DependencyStatus, Resources, check_dependency, open_resources
 from lumini.settings import Settings
 
@@ -24,6 +28,16 @@ class Readiness(BaseModel):
 
 def get_resources(request: Request) -> Resources:
     return cast(Resources, request.app.state.resources)
+
+
+async def sanitized_validation_error(request: Request, error: Exception) -> JSONResponse:
+    """FastAPI's default echoes the submitted input; clinical text and tokens must not return."""
+    errors = error.errors() if isinstance(error, RequestValidationError) else []
+    detail = [
+        {"loc": list(item.get("loc", ())), "type": item.get("type"), "msg": item.get("msg")}
+        for item in errors
+    ]
+    return JSONResponse({"detail": detail}, status_code=422, headers={"Cache-Control": "no-store"})
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -43,14 +57,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url=None,
         openapi_url="/openapi.json" if config.environment != "production" else None,
     )
+    app.state.settings = config
+    # Constructing the verifier performs no network work; unconfigured access fails closed.
+    app.state.identity_verifier = build_identity_verifier(config)
+    app.add_exception_handler(RequestValidationError, sanitized_validation_error)
     if config.cors_origins:
+        # Bearer tokens only, never cookies: credentials stay disabled.
         app.add_middleware(
             CORSMiddleware,
             allow_origins=config.cors_origins,
             allow_credentials=False,
-            allow_methods=["GET"],
-            allow_headers=["Content-Type"],
+            allow_methods=["GET", "POST", "PATCH"],
+            allow_headers=["Authorization", "Content-Type"],
+            max_age=600,
         )
+    app.include_router(admin_router)
+    app.include_router(public_router)
 
     @app.get("/health/live", response_model=Liveness, tags=["health"])
     async def live() -> Liveness:

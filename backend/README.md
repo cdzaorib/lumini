@@ -11,9 +11,11 @@ Na pasta `backend/` (a raiz possui um uv local em `.tools/bin/uv`):
 ../.tools/bin/uv run uvicorn lumini.app:create_app --factory --host 127.0.0.1 --port 8000
 ```
 
-PyCharm: abrir `backend/` e selecionar `.venv/bin/python`. Configuração Python Module: `uvicorn`; parâmetros: `lumini.app:create_app --factory --host 127.0.0.1 --port 8000`; diretório de trabalho: `backend/`. O interpretador do sistema 3.11 não atende este projeto; uv gerencia o 3.12 isoladamente.
+VS Code (IDE escolhida): selecionar o interpretador `backend/.venv/bin/python`. Execução: módulo `uvicorn`, argumentos `lumini.app:create_app --factory --host 127.0.0.1 --port 8000`, diretório de trabalho `backend/`. O interpretador do sistema 3.11 não atende este projeto; uv gerencia o 3.12 isoladamente.
 
-`GET /health/live` verifica o processo. `GET /health/ready` faz `SELECT 1` no PostgreSQL e `PING` no Redis e retorna 503 se faltar configuração ou conexão. Readiness verifica **conectividade apenas**; não atesta schema atualizado, autenticação, agenda, modelos ou WhatsApp. `/docs` e `/openapi.json` só existem fora de produção. Nenhuma rota de negócios ou mutação administrativa está exposta.
+`GET /health/live` verifica o processo. `GET /health/ready` faz `SELECT 1` no PostgreSQL e `PING` no Redis e retorna 503 se faltar configuração ou conexão. Readiness verifica **conectividade apenas**; não atesta schema atualizado, autenticação, agenda, modelos ou WhatsApp. `/docs` e `/openapi.json` só existem fora de produção.
+
+Rotas de catálogo (contrato completo em `../docs/API-ADMIN.md`): `/api/admin/*` exige Google ID token válido + allowlist em **toda** rota, verificado antes de abrir sessão de banco; `GET /api/catalog/services` é público e lista somente serviços publicados cujas aprovações, credenciais e conteúdo continuam válidos.
 
 ## Configuração
 
@@ -26,6 +28,9 @@ Somente variáveis de processo com prefixo `LUMINI_`; não há carregamento impl
 | `LUMINI_REDIS_URL` | URL `redis://` ou `rediss://`; opcional na API, obrigatória no worker |
 | `LUMINI_CORS_ORIGINS` | JSON de origens explícitas, ex.: `["http://localhost:3000"]`; padrão lista vazia |
 | `LUMINI_DEPENDENCY_TIMEOUT_SECONDS` | Prazo por dependência; padrão 2 segundos |
+| `LUMINI_GOOGLE_CLIENT_ID` | Client ID OAuth (identificador público, não segredo); sem ele `/api/admin/*` responde 503 |
+| `LUMINI_ADMIN_EMAILS` | JSON de e-mails autorizados; vazio = acesso administrativo bloqueado |
+| `LUMINI_REVIEWER_ASSIGNMENTS` | JSON e-mail → lista de UUIDs de profissionais que aquela identidade pode aprovar; e-mails precisam estar na allowlist |
 
 Credenciais devem vir de ambiente seguro/gerenciador de segredos. Não colar URLs reais em comandos registrados no histórico. Configurações escondem segredos em `repr`/JSON; nunca serialize o resultado bruto de `ValidationError.errors()`, pois Pydantic pode incluir os valores de entrada nessa estrutura.
 
@@ -40,7 +45,7 @@ Falhas de construção dos clientes Redis/SQLAlchemy e do engine de migração s
 ../.tools/bin/uv run alembic upgrade head
 ```
 
-A revisão inicial cria catálogo vazio (profissionais, serviços e vínculo). Restrições protegem status, valores não negativos e existência de metadados de aprovação/publicação. Validação clínica, revogação de aprovação após alteração, vínculo com identidade autenticada e bloqueio por credencial ainda pertencem à próxima fase; não há endpoint público para contornar essas regras nesta fundação. Modelos não são criados automaticamente ao iniciar a API.
+`0001_catalog` cria catálogo vazio (profissionais, serviços e vínculo). `0002_catalog_workflow` adiciona revisões, aprovações por profissional/revisão e auditoria mínima (ator `sub`, alvo UUID, ação, revisão), sem copiar texto clínico nem e-mails. Regras de fluxo vivem em `lumini.catalog.service`. Nenhum conteúdo/conta é semeado. Modelos não são criados automaticamente ao iniciar a API.
 
 ## Worker
 

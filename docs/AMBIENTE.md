@@ -15,11 +15,11 @@ node --version
 
 O caminho acima é específico desta máquina. Em outra, usar Node 22 compatível e `npm ci`.
 
-## Backend no PyCharm
+## Backend no VS Code
 
-Abrir a raiz do projeto ou a pasta `backend/`. Selecionar o interpretador existente `backend/.venv/bin/python`. A configuração de execução comum a qualquer IDE deve usar módulo `uvicorn`, argumentos `lumini.app:create_app --factory --reload --host 127.0.0.1 --port 8000 --no-access-log` e diretório de trabalho `backend/`.
+IDE escolhida pelo usuário em 2026-10-01: **VS Code**; PyCharm deixou de ser requisito (a instalação abaixo permanece apenas como histórico). Abrir a raiz do projeto e selecionar o interpretador `backend/.venv/bin/python`. A configuração de execução comum a qualquer IDE deve usar módulo `uvicorn`, argumentos `lumini.app:create_app --factory --reload --host 127.0.0.1 --port 8000 --no-access-log` e diretório de trabalho `backend/`.
 
-Os recursos básicos do PyCharm bastam para abrir e executar o Python; recursos específicos de FastAPI podem depender da edição/plano. A instalação não é uma assinatura paga nem garante licença Pro. Primeiro início/termos/licença permanecem sob controle do usuário.
+Histórico: os recursos básicos do PyCharm bastam para abrir e executar o Python; recursos específicos de FastAPI podem depender da edição/plano. A instalação não é uma assinatura paga nem garante licença Pro. Primeiro início/termos/licença permanecem sob controle do usuário.
 
 Instalação local realizada: PyCharm 2026.2.3 em `/home/usuario/.local/opt/pycharm-2026.2.3`, checksum oficial SHA256 conferido. Launcher `/home/usuario/.local/bin/pycharm-lumini` e entrada no menu de aplicativos. Processo iniciado com este projeto; configuração visual do interpretador ainda não comprovada.
 

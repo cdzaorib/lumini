@@ -33,7 +33,7 @@ O usuário pediu handoff atualizado **a cada tarefa concluída ou bloqueada**. A
 - Não fazer push, deploy, migração em produção ou compra de serviços sem autorização específica. Desenvolvimento local e testes sintéticos estão aprovados.
 - Antes de commit local: revisar diff, conferir arquivos ignorados/segredos e executar os checks relevantes. Staging explícito por caminho, nunca `git add .`/`-A`.
 - Não iniciar dois agentes gravando nos mesmos arquivos. Claude fica aguardando o usuário enquanto Codex estiver implementando.
-- Para continuidade no PyCharm: abrir a raiz ou `backend/` e selecionar `backend/.venv/bin/python`.
+- IDE escolhida pelo usuário: **VS Code**, mantendo Python/FastAPI no backend. Não instalar/configurar PyCharm como requisito. O interpretador é `backend/.venv/bin/python`.
 
 ## Qualidade
 
