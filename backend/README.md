@@ -47,6 +47,10 @@ Falhas de construção dos clientes Redis/SQLAlchemy e do engine de migração s
 
 `0001_catalog` cria catálogo vazio (profissionais, serviços e vínculo). `0002_catalog_workflow` adiciona revisões, aprovações por profissional/revisão e auditoria mínima (ator `sub`, alvo UUID, ação, revisão), sem copiar texto clínico nem e-mails. Regras de fluxo vivem em `lumini.catalog.service`. Nenhum conteúdo/conta é semeado. Modelos não são criados automaticamente ao iniciar a API.
 
+## Reservas (`lumini.booking`)
+
+Regras determinísticas em `policy.py` (ADR-013): disponibilidade = regras semanais da profissional ∩ livre no Google Calendar ∩ sem reserva ativa; reserva idempotente por chave; trava por profissional/horário via `EXCLUDE` gist no PostgreSQL (extensão `btree_gist`, criada pela migração `0003`); estados `pending_calendar → held (2h) → confirming → confirmed`, além de `expired`, `cancelled`, `conflict`. Confirmação de sinal só por equipe autenticada; cancelamento/reagendamento pela cliente só com mais de 24h. O calendário fica atrás de `CalendarAdapter` e é atualizado pelo outbox (`outbox_jobs`), nunca dentro de transação. `dispatch.tick()` expira reservas, agenda mensagens e entrega o outbox revalidando cada mensagem. Testes usam calendário em memória (`tests/booking_fakes.py`); integração real com Google ainda não existe.
+
 ## Worker
 
 ```bash

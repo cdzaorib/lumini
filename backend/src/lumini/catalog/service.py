@@ -544,15 +544,17 @@ async def unpublish_service(
     return await _service_view(session, item)
 
 
-async def list_public_services(session: AsyncSession) -> list[PublicService]:
-    """Published services whose approvals, credentials and content are still valid."""
-    services = list(
-        await session.scalars(
-            select(Service)
-            .where(Service.status == "published")
-            .order_by(Service.category, Service.name)
-        )
-    )
+async def _eligible_published(
+    session: AsyncSession, service_ids: Sequence[uuid.UUID] | None = None
+) -> tuple[list[Service], dict[uuid.UUID, list[uuid.UUID]], dict[uuid.UUID, Professional]]:
+    """Published services whose approvals, credentials and content are still valid.
+
+    Single source of truth for the public catalog and for booking eligibility.
+    """
+    query = select(Service).where(Service.status == "published")
+    if service_ids is not None:
+        query = query.where(Service.id.in_(service_ids))
+    services = list(await session.scalars(query.order_by(Service.category, Service.name)))
     links = await _links(session, (item.id for item in services))
     approvals = await _current_approvals(session, services)
     ids = {professional_id for linked in links.values() for professional_id in linked}
@@ -564,18 +566,35 @@ async def list_public_services(session: AsyncSession) -> list[PublicService]:
             )
         )
     }
+    eligible: list[Service] = []
+    for item in services:
+        linked = links[item.id]
+        approved = {approval.professional_id for approval in approvals[item.id]}
+        if (
+            linked
+            and set(linked) <= approved
+            and set(linked) <= professionals.keys()
+            and _is_complete(item, ServiceContent.model_validate(item.content))
+        ):
+            eligible.append(item)
+    return eligible, links, professionals
+
+
+async def bookable_service(
+    session: AsyncSession, service_id: uuid.UUID
+) -> tuple[Service, list[uuid.UUID]] | None:
+    """The service and its linked professionals, only while publicly eligible."""
+    services, links, _ = await _eligible_published(session, [service_id])
+    return (services[0], links[service_id]) if services else None
+
+
+async def list_public_services(session: AsyncSession) -> list[PublicService]:
+    """Published services whose approvals, credentials and content are still valid."""
+    services, links, professionals = await _eligible_published(session)
     result: list[PublicService] = []
     for item in services:
         linked = links[item.id]
         content = ServiceContent.model_validate(item.content)
-        approved = {approval.professional_id for approval in approvals[item.id]}
-        if (
-            not linked
-            or not set(linked) <= approved
-            or not set(linked) <= professionals.keys()
-            or not _is_complete(item, content)
-        ):
-            continue
         result.append(
             PublicService.model_validate(
                 {

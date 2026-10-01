@@ -6,14 +6,14 @@ Atualizado em 2026-10-01 ao concluir **T07b — painel do catálogo** (Claude). 
 
 ## Próximo ponto de retomada
 
-Próxima tarefa: **T08 — reservas transacionais e contrato de calendário** (Fase 2). O usuário autorizou desenvolver conforme o plano; não repetir grill-me nem pedir aprovação de novo para trabalho local desse escopo. Commits locais estão autorizados ("pode alterar e seguir"); push/deploy/produção continuam exigindo autorização específica.
+Próxima tarefa: **T08b — API administrativa e painel de reservas/agenda.** O usuário autorizou seguir o plano até acabarem os créditos da sessão, com commits locais; push/deploy/produção continuam exigindo autorização específica.
 
 1. Conferir `git status`, `git log -1` e processos.
-2. Modelar reservas com estados explícitos (ADR-008), `expires_at` persistido, idempotency keys, outbox e trava/restrição transacional por profissional+horário (não reutilizar a trava do catálogo, ADR-011). Duração + intervalo de 15min vêm do catálogo publicado.
-3. Contrato de calendário atrás de adapter (fake em teste): consulta de disponibilidade, **evento temporário** ao reservar (passo 9 do plano), confirmação após sinal humano, remoção na expiração, reconciliação e falha conservadora sem atomicidade distribuída.
-4. Confirmação de sinal humana e autenticada (rota admin), corrida com expiração na mesma transição condicional; janela mínima de 2h antes do atendimento; cancelamento/reagendamento >24h autoatendimento, ≤24h humano.
-5. Testes de concorrência reais no PostgreSQL. Google Calendar real fica pendente até haver calendários de teste da clínica.
-6. T07c (verificação de segredos) concluída: `make secrets-check` antes de cada commit.
+2. Backend: rotas `/api/admin/` para agenda da profissional (`calendar_id` + regras semanais, PUT com `expected_revision`, sem tocar na verificação de credencial), prévia de horários, lista de reservas (nome/telefone só para equipe), confirmar sinal (valor + versão), cancelar, resolver conflito. Mapear `BookingError` para 403/404/409/422; sincronizar calendário em segundo plano após mutação é opcional — o worker (T08c) é o caminho confiável.
+3. Painel: seções “Agenda” (por profissional) e “Reservas” (pendentes de sinal com prazo, confirmadas, conflitos), mesma CSP e padrões de foco/mensagens de `/admin`.
+4. Depois: T08c (worker Celery beat + adaptador Google com conta de serviço) e T08d (links de autoatendimento).
+
+Regras de reserva em `DECISOES.md` (ADR-013); código em `backend/src/lumini/booking/`.
 
 ## Contexto aprovado
 
@@ -21,10 +21,10 @@ O usuário encerrou grill-me, aprovou o plano em `PLANO.md`, alterou backend par
 
 ## Estado comprovado
 
-- **Real local:** backend com **121 unitários + 55 integrações** PostgreSQL/Redis locais (zero skips/warnings com `-W error`); migração `0002` com roundtrip e sem drift; auth Google verificada offline com chaves RSA sintéticas; fluxo de catálogo por HTTP contra PostgreSQL real. Painel `/admin` validado de ponta a ponta no Chrome (12/12 etapas, 0 violações de CSP, 0 erros de console) com API e banco reais e script do Google em stub; script real do Google carregou sob a CSP sem violações; build de produção verde (`VALIDACAO-002.md`).
-- **Mock/sintético:** identidade injetada no backend de teste; stub do script do Google no navegador; principal injetado nos testes de catálogo.
+- **Real local:** backend com **130 unitários + 91 integrações** PostgreSQL/Redis locais (zero skips/warnings com `-W error`); migrações até `0003_bookings` com roundtrip e sem drift; núcleo de reservas com trava por profissional/horário no banco provada em concorrência real; auth Google offline com chaves sintéticas; catálogo e painel `/admin` validados de ponta a ponta no Chrome (`VALIDACAO-002.md`).
+- **Mock/sintético:** identidade injetada no backend de teste; stub do script do Google no navegador; principal injetado nos testes de catálogo; **calendário em memória** nos testes de reserva.
 - **Apenas preparado:** CI com serviços sintéticos (sem execução remota).
-- **Não iniciado:** login Google real, Google Calendar, reservas/agendamento, Evolution, IA, notificações, landing completa, deploy.
+- **Não iniciado:** login Google real, Google Calendar real, API/painel de reservas, worker agendado, Evolution, IA, envio de notificações, landing completa, deploy.
 - **Verificação de segredos:** gitleaks local verde; job de CI preparado (não executado remotamente).
 - Nenhuma credencial de fornecedor foi carregada/copiada; nenhum fornecedor externo foi chamado com credencial.
 
@@ -35,11 +35,13 @@ O usuário encerrou grill-me, aprovou o plano em `PLANO.md`, alterou backend par
 - Catálogo público mostra nome, categoria e registro de conselho das profissionais **verificadas** (identificação exigida pelo Cofen); restrições de comunicação e dados de revisão não são públicos.
 - Para usar o painel de verdade: criar Client ID OAuth (tipo aplicação web) na conta Google da clínica com a origem do frontend, e configurar `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `NEXT_PUBLIC_API_BASE_URL` (HTTPS), `LUMINI_GOOGLE_CLIENT_ID`, `LUMINI_ADMIN_EMAILS`, `LUMINI_REVIEWER_ASSIGNMENTS` e `LUMINI_CORS_ORIGINS` — fora do Git, nunca pelo chat.
 
+- **Decisões de reserva para a clínica confirmar** (ADR-013): antecedência mínima de 3h para reservar online; sinal zero também exige confirmação humana; só serviços “agendamento direto” são reserváveis online (avaliações viram serviço próprio); eventos no Google sem nome/telefone da cliente.
+
 ## Operação e processos ativos
 
 - Sessão Claude: `claude --remote-control Lumini --no-chrome --ide` (PID 579918, iniciada pelo Codex em PTY), VS Code conectado via `/ide`. URL remota fora do Git.
 - Frontend preview: `next start` em `http://127.0.0.1:3000` (PID 624146; religado por esta sessão com o build de T07b, **sem** variáveis do painel, então `/admin` mostra “não configurado”). Novo `npm run build` exige parar este processo antes.
-- PostgreSQL 15.19 (`127.0.0.1:55432`, banco `lumini_foundation_test`, role sintética `lumini_test`, auth trust só em loopback; PID 600452) e Redis 7.0.15 (`127.0.0.1:56379`; PID 600459), a partir de `/tmp/lumini-services.j2gMAS`. Banco na migração **0002**, tabelas vazias. Não é infraestrutura permanente.
+- PostgreSQL 15.19 (`127.0.0.1:55432`, banco `lumini_foundation_test`, role sintética `lumini_test`, auth trust só em loopback; PID 600452) e Redis 7.0.15 (`127.0.0.1:56379`; PID 600459), a partir de `/tmp/lumini-services.j2gMAS`. Banco na migração **0003**, tabelas vazias. Não é infraestrutura permanente.
 - Integração: `LUMINI_INTEGRATION_DATABASE_URL=postgresql://lumini_test@127.0.0.1:55432/lumini_foundation_test LUMINI_INTEGRATION_REDIS_URL=redis://127.0.0.1:56379/0 make backend-integration` (só esta máquina; sem segredo).
 - `next dev` gera `frontend/AGENTS.md`/`CLAUDE.md` (versionados): ler a documentação do Next 16 em `frontend/node_modules/next/dist/docs/` antes de mexer no frontend.
 - uv 0.12.21 em `.tools/`, Python 3.12.14 em `backend/.venv/`, Node 22 conforme `AMBIENTE.md`. Docker não instalado. PyCharm não é mais requisito.
