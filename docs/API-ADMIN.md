@@ -89,3 +89,9 @@ Credencial = token do link (HMAC-SHA256 sobre reserva + validade até o início 
 
 - `POST /api/webhooks/evolution` (Evolution → API). Exige `Authorization: Bearer <LUMINI_EVOLUTION_WEBHOOK_TOKEN>` (401), instância igual a `LUMINI_EVOLUTION_INSTANCE` (403), corpo ≤ 1 MB (413), JSON objeto (400); sem configuração → 404. Eventos tratados: `messages.upsert`/`send.message` (mensagens), `connection.update`, `qrcode.updated`; demais ignorados com 200. Banco indisponível → 503. Detalhes em ADR-017 e `RUNBOOK-WHATSAPP.md`.
 - `GET /api/admin/integrations` → `{whatsapp: {configured, state, needs_attention, changed_at, human_mode_conversations}, calendar_configured, self_service_configured}`. Estados: `open`, `connecting`, `close`, `qr_required`, `unknown`; configurado sem notícia da instância conta como `needs_attention`.
+
+## Pedidos de contato / leads (T10b)
+
+- `POST /api/public/leads` (site, sem login) com `{name, phone, city?, service_id?, preferred_period: morning|afternoon|any, contact_consent: true, marketing_consent?, website: ""}` → 201 `{ok: true}` (mesma resposta para gravado, atualizado ou armadilha de robô). Telefone brasileiro com DDD ou E.164. **Não há campo de texto livre** (poderia trazer dado de saúde). Procedimento não publicado é descartado. Reenvio do mesmo telefone em 24 h atualiza o pedido. Limite de 5 envios por endereço a cada 10 min (429). 422 sem eco.
+- `GET /api/admin/leads?status=new|contacted|converted|discarded` (padrão `new`, até 200) e `POST /api/admin/leads/{id}/status` com `{status}` → 204.
+- Retenção: não convertidos são apagados na data `retain_until` (90 dias, plano §12) pelo tick do worker; convertidos seguem a política de agendamentos (a aprovar antes do lançamento).

@@ -115,3 +115,7 @@ Real local: webhook + PostgreSQL + worker + painel no Chrome. Mock: Evolution (r
 ## 2026-10-05 — T10a camada de IA (Claude)
 
 `lumini/ai/`: redação de identificadores, contratos estruturados, cliente OpenAI-compatível (DeepSeek), assistente com validação de saída e contabilidade sem texto, guardrails do redator, bancada sintética (`python -m lumini.ai.benchmark`, não executada: sem chave). Integrado ao fluxo do WhatsApp só para texto livre nos passos de navegação; **desligado por padrão** (ADR-018). Migração `0005_leads_ai` (contabilidade de IA e tabela de leads usada na T10b). Evidência: 267 unitários + 165 integrações (3 rodadas); testes de rota por confiança, redação antes de sair, modelo nunca consultado em nome/confirmação, respostas checadas e contabilidade sem texto. Mock: provedor (cliente roteirizado). Não iniciado: benchmark real, Jev.
+
+## 2026-10-05 — T10b pedidos de contato (Claude)
+
+`lumini/leads/`: formulário público com consentimento de contato obrigatório e de marketing separado, sem texto livre, armadilha de robô, deduplicação diária, limite por endereço; lista e status no painel (aba “Contatos”, link para WhatsApp); exclusão automática dos não convertidos após 90 dias no tick. Evidência: 18 unitários + 8 integrações. Validação no navegador junto com o site (T10c).

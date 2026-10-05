@@ -1,5 +1,5 @@
 import type { RequestTicket } from "./session";
-import { BOOKING_STATUSES, type AdminIdentity, type Booking, type Integrations, type Professional, type Schedule, type Service, type ServiceContent } from "./types";
+import { BOOKING_STATUSES, LEAD_STATUSES, type AdminIdentity, type Booking, type Integrations, type Lead, type Professional, type Schedule, type Service, type ServiceContent } from "./types";
 
 export class AdminApiError extends Error {
   status: number;
@@ -46,6 +46,8 @@ const ADMIN_PATHS = [
   /^\/api\/admin\/(me|professionals|services)(\/[a-zA-Z0-9-]+)?(\/(verify|revoke|approve|publish|unpublish))?$/,
   new RegExp(`^/api/admin/professionals/${ID}/schedule$`),
   /^\/api\/admin\/integrations$/,
+  /^\/api\/admin\/leads\?status=(new|contacted|converted|discarded)$/,
+  new RegExp(`^/api/admin/leads/${ID}/status$`),
   /^\/api\/admin\/bookings\?scope=(upcoming|history)$/,
   new RegExp(`^/api/admin/bookings/${ID}/(deposit|cancel|resolve|reschedule|manage-link)$`),
   new RegExp(`^/api/admin/availability\\?service_id=${ID}&professional_id=${ID}&first_day=\\d{4}-\\d{2}-\\d{2}&days=\\d{1,2}$`),
@@ -72,7 +74,7 @@ export async function adminRequest(
     referrerPolicy: "no-referrer",
   });
   if (!response.ok) throw new AdminApiError(response.status, await errorCode(response));
-  return response.json();
+  return response.status === 204 ? null : response.json();
 }
 
 async function errorCode(response: Response): Promise<string | null> {
@@ -223,4 +225,16 @@ export function decodeIntegrations(value: unknown): Integrations {
     calendar_configured: flag(data.calendar_configured),
     self_service_configured: flag(data.self_service_configured),
   };
+}
+
+export function decodeLeads(value: unknown): Lead[] {
+  return list(value, (item) => {
+    const data = row(item);
+    return {
+      id: str(data.id), name: str(data.name), phone: str(data.phone), city: nullable(data.city), service: nullable(data.service),
+      preferred_period: oneOf(data.preferred_period, ["morning", "afternoon", "any"] as const), source: str(data.source),
+      status: oneOf(data.status, LEAD_STATUSES), marketing_consent: flag(data.marketing_consent),
+      created_at: str(data.created_at), retain_until: str(data.retain_until),
+    };
+  });
 }

@@ -10,26 +10,29 @@ import {
   decodeBookings,
   decodeIdentity,
   decodeIntegrations,
+  decodeLeads,
   decodeProfessionals,
   decodeServices,
 } from "@/lib/admin/api";
 import { GOOGLE_SCRIPT, googleAccountsId, type CredentialResponse } from "@/lib/admin/google";
 import { AdminSession, type RequestTicket } from "@/lib/admin/session";
 import type { AdminConfig } from "@/lib/admin/config";
-import type { AdminIdentity, Booking, BookingScope, Catalog, Command, Integrations, Mutation, Query } from "@/lib/admin/types";
+import type { AdminIdentity, Booking, BookingScope, Catalog, Command, Integrations, Lead, Mutation, Query } from "@/lib/admin/types";
 
 import { AgendaSection } from "./agenda";
 import { BookingsSection } from "./bookings";
 import { IntegrationsSection, attentionText } from "./integrations";
+import { LeadsSection } from "./leads";
 import { ProfessionalsSection } from "./professionals";
 import { ServicesSection } from "./services";
 import { ui } from "./ui";
 
 type Notice = { kind: "success" | "error"; text: string } | null;
-type View = "bookings" | "agenda" | "catalog" | "integrations";
+type View = "bookings" | "leads" | "agenda" | "catalog" | "integrations";
 
 const VIEWS: { id: View; label: string }[] = [
   { id: "bookings", label: "Reservas" },
+  { id: "leads", label: "Contatos" },
   { id: "agenda", label: "Agenda" },
   { id: "catalog", label: "Catálogo" },
   { id: "integrations", label: "Integrações" },
@@ -65,6 +68,7 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [integrations, setIntegrations] = useState<Integrations | null>(null);
+  const [leads, setLeads] = useState<Lead[] | null>(null);
   const [scope, setScope] = useState<BookingScope>("upcoming");
   const scopeRef = useRef<BookingScope>("upcoming");
   const [view, setView] = useState<View>("bookings");
@@ -83,6 +87,7 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
       setCatalog(null);
       setBookings(null);
       setIntegrations(null);
+      setLeads(null);
       setNotice(message);
     },
     [session],
@@ -105,11 +110,12 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
 
   const loadCatalog = useCallback(
     async (ticket: RequestTicket) => {
-      const [professionals, services, booked, status] = await Promise.all([
+      const [professionals, services, booked, status, requests] = await Promise.all([
         adminRequest(config.apiOrigin, ticket, "/api/admin/professionals"),
         adminRequest(config.apiOrigin, ticket, "/api/admin/services"),
         adminRequest(config.apiOrigin, ticket, `/api/admin/bookings?scope=${scopeRef.current}`),
         adminRequest(config.apiOrigin, ticket, "/api/admin/integrations"),
+        adminRequest(config.apiOrigin, ticket, "/api/admin/leads?status=new"),
       ]);
       if (!ticket.isCurrent()) return;
       setCatalog({
@@ -118,6 +124,7 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
       });
       setBookings(decodeBookings(booked));
       setIntegrations(decodeIntegrations(status));
+      setLeads(decodeLeads(requests));
     },
     [config.apiOrigin],
   );
@@ -324,7 +331,7 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
             <div ref={buttonRef} className="mt-6 min-h-11" />
             {!scriptReady && <p className={ui.hint}>Carregando o login do Google…</p>}
           </section>
-        ) : !catalog || !bookings || !integrations ? (
+        ) : !catalog || !bookings || !integrations || !leads ? (
           <p aria-busy="true">Carregando dados…</p>
         ) : (
           <>
@@ -371,6 +378,7 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
               />
             )}
             {view === "integrations" && <IntegrationsSection integrations={integrations} />}
+            {view === "leads" && <LeadsSection initial={leads} mutate={mutate} query={query} busy={busy} />}
             {view === "catalog" && (
               <div className="flex flex-col gap-12">
                 <ProfessionalsSection professionals={catalog.professionals} mutate={mutate} busy={busy} />

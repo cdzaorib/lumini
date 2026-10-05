@@ -17,6 +17,7 @@ from lumini.booking.outbox import claim, finish, retry_later
 from lumini.booking.policy import DEFAULT_POLICY, BookingPolicy
 from lumini.booking.reconcile import requeue_stalled
 from lumini.booking.service import enqueue_due_notifications, expire_due, sync_calendar
+from lumini.leads.service import purge_expired
 from lumini.models import Booking
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,7 @@ class TickReport:
     retried: int = 0
     failed: int = 0
     requeued: int = 0
+    purged_leads: int = 0
     notes: list[str] = field(default_factory=list)
 
 
@@ -154,6 +156,7 @@ async def tick(
     scheduling and (with a notifier) messages still run.
     """
     report = TickReport()
+    report.purged_leads = await purge_expired(session, now=now)
     report.expired = len(await expire_due(session, now=now))
     report.scheduled_messages = await enqueue_due_notifications(session, now=now, policy=policy)
     if calendar is not None:

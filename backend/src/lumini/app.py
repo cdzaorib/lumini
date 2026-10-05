@@ -18,6 +18,8 @@ from lumini.booking.public_router import router as self_service_router
 from lumini.booking.router import BOOKING_ERRORS, booking_error_handler
 from lumini.booking.router import router as booking_router
 from lumini.catalog.router import admin_router, public_router
+from lumini.leads.router import admin_router as leads_admin_router
+from lumini.leads.router import public_router as leads_public_router
 from lumini.resources import DependencyStatus, Resources, check_dependency, open_resources
 from lumini.settings import Settings
 from lumini.whatsapp.evolution import build_sender
@@ -91,6 +93,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(booking_router)
     app.include_router(self_service_router)
     app.include_router(webhook_router)
+    app.include_router(leads_public_router)
+    app.include_router(leads_admin_router)
     app.include_router(integrations_router)
     app.include_router(public_router)
 

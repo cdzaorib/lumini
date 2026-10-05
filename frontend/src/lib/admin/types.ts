@@ -91,3 +91,21 @@ export type Integrations = {
   calendar_configured: boolean;
   self_service_configured: boolean;
 };
+
+export const LEAD_STATUSES = ["new", "contacted", "converted", "discarded"] as const;
+export type LeadStatus = (typeof LEAD_STATUSES)[number];
+
+// Contact data is shown only inside the authenticated panel; never copy it elsewhere.
+export type Lead = {
+  id: string;
+  name: string;
+  phone: string;
+  city: string | null;
+  service: string | null;
+  preferred_period: "morning" | "afternoon" | "any";
+  source: string;
+  status: LeadStatus;
+  marketing_consent: boolean;
+  created_at: string;
+  retain_until: string;
+};
