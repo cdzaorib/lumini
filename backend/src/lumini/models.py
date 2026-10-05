@@ -206,6 +206,11 @@ class Booking(Base):
         ),
         CheckConstraint("deposit_brl >= 0", name="ck_bookings_deposit"),
         CheckConstraint("reschedule_count >= 0", name="ck_bookings_reschedules"),
+        CheckConstraint(
+            "attendance IS NULL OR "
+            "(attendance IN ('attended', 'no_show') AND status = 'confirmed')",
+            name="ck_bookings_attendance",
+        ),
         # Only open holds carry a deadline; nothing else can expire.
         CheckConstraint(
             f"({_in('status', ('pending_calendar', 'held'))}) = (expires_at IS NOT NULL)",
@@ -248,6 +253,10 @@ class Booking(Base):
     )
     reschedule_count: Mapped[int] = mapped_column(Integer, server_default="0")
     closed_reason: Mapped[str | None] = mapped_column(String(40))
+    # Marked by staff after the appointment time (plan §11 metrics: no-shows).
+    attendance: Mapped[str | None] = mapped_column(String(10))
+    attendance_marked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    attendance_marked_by: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -293,7 +302,10 @@ class BookingEvent(Base):
     to_status: Mapped[str] = mapped_column(String(20))
     actor_type: Mapped[str] = mapped_column(String(10))
     actor_subject: Mapped[str | None] = mapped_column(String(255))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # clock_timestamp(): several events in one transaction keep their real order (now() would tie).
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.clock_timestamp()
+    )
 
 
 class OutboxJob(Base):

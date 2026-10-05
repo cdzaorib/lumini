@@ -6,9 +6,22 @@ from datetime import datetime
 from sqlalchemy import Select, and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lumini.booking.schemas import BookingAdminView, BookingScope, ContactView, NamedRef
+from lumini.booking.schemas import (
+    BookingAdminView,
+    BookingEventView,
+    BookingScope,
+    ContactView,
+    NamedRef,
+)
 from lumini.booking.service import BookingNotFound
-from lumini.models import ACTIVE_BOOKING_STATUSES, Booking, Contact, Professional, Service
+from lumini.models import (
+    ACTIVE_BOOKING_STATUSES,
+    Booking,
+    BookingEvent,
+    Contact,
+    Professional,
+    Service,
+)
 
 # Needs staff attention regardless of the appointment time.
 _OPEN_STATUSES = tuple(status for status in ACTIVE_BOOKING_STATUSES if status != "confirmed")
@@ -47,7 +60,35 @@ def _view(row: tuple[Booking, str, str, str, str]) -> BookingAdminView:
         rescheduled_from_id=booking.rescheduled_from_id,
         closed_reason=booking.closed_reason,
         created_at=booking.created_at,
+        attendance=booking.attendance,
+        origin=origin_of(booking.idempotency_key),
     )
+
+
+def origin_of(idempotency_key: str) -> str:
+    prefix = idempotency_key.split(":", 1)[0]
+    return {"wa": "whatsapp", "web": "site", "reschedule": "reschedule"}.get(prefix, "other")
+
+
+async def booking_events(session: AsyncSession, booking_id: uuid.UUID) -> list[BookingEventView]:
+    async with session.begin():
+        if await session.get(Booking, booking_id) is None:
+            raise BookingNotFound("Booking not found")
+        rows = await session.scalars(
+            select(BookingEvent)
+            .where(BookingEvent.booking_id == booking_id)
+            .order_by(BookingEvent.created_at, BookingEvent.id)
+        )
+        return [
+            BookingEventView(
+                action=row.action,
+                from_status=row.from_status,
+                to_status=row.to_status,
+                actor=row.actor_type,
+                at=row.created_at,
+            )
+            for row in rows
+        ]
 
 
 async def list_bookings(

@@ -392,3 +392,106 @@ async def test_unknown_booking_is_not_found(api: Api) -> None:
         ("reschedule", {"expected_version": 1, "starts_at": local(WEDNESDAY, 14).isoformat()}),
     ]:
         await api.refused("post", f"/bookings/{missing}/{action}", body, 404, "not_found")
+
+
+async def test_attendance_is_recorded_after_the_start_and_freezes_the_booking(api: Api) -> None:
+    world = api.world
+    booking = await confirmed(world, local(TUESDAY, 10))
+    path = f"/bookings/{booking.id}/attendance"
+    body = {"expected_version": booking.version, "attendance": "attended"}
+    await api.refused("post", path, body, 409, "too_early")
+    api.now[0] = local(TUESDAY, 10, 5)
+    await api.refused("post", path, {**body, "expected_version": 1}, 409, "stale")
+    marked = await api.ok("post", path, body)
+    assert (marked["attendance"], marked["version"]) == ("attended", booking.version + 1)
+    version = {"expected_version": marked["version"]}
+    await api.refused("post", f"/bookings/{booking.id}/cancel", version, 409, "attendance_recorded")
+    move = {**version, "starts_at": local(WEDNESDAY, 14).isoformat()}
+    await api.refused(
+        "post", f"/bookings/{booking.id}/reschedule", move, 409, "attendance_recorded"
+    )
+    holding = await held(world, local(WEDNESDAY, 10))
+    hold_body = {"expected_version": holding.version, "attendance": "no_show"}
+    await api.refused("post", f"/bookings/{holding.id}/attendance", hold_body, 409, "invalid_state")
+
+
+async def test_no_show_gets_no_aftercare(api: Api) -> None:
+    from lumini.booking.service import enqueue_due_notifications
+
+    world = api.world
+    present = await confirmed(world, local(TUESDAY, 10))
+    absent = await confirmed(world, local(TUESDAY, 14))
+    api.now[0] = local(TUESDAY, 16)
+    for item, mark in ((present, "attended"), (absent, "no_show")):
+        current = await api.ok("get", f"/bookings/{item.id}")
+        body = {"expected_version": current["version"], "attendance": mark}
+        await api.ok("post", f"/bookings/{item.id}/attendance", body)
+    await enqueue_due_notifications(world.session, now=local(TUESDAY, 16))
+    async with world.session.begin():
+        aftercare = set(
+            await world.session.scalars(
+                select(OutboxJob.booking_id).where(OutboxJob.event == "aftercare")
+            )
+        )
+    assert aftercare == {present.id}
+
+
+async def test_booking_history_shows_steps_without_identifying_staff(api: Api) -> None:
+    booking = await confirmed(api.world, local(TUESDAY, 10))
+    history = await api.ok("get", f"/bookings/{booking.id}/events")
+    assert [(item["action"], item["actor"]) for item in history] == [
+        ("hold_requested", "client"),
+        ("held", "system"),
+        ("deposit_confirmed", "staff"),
+        ("confirmed", "system"),
+    ]
+    assert "subject" not in str(history) and "synthetic-staff" not in str(history)
+    await api.refused("get", f"/bookings/{uuid4()}/events", None, 404, "not_found")
+
+
+async def test_metrics_count_the_plan_indicators(api: Api) -> None:
+    from lumini.models import Lead
+
+    world = api.world
+    attended = await confirmed(world, local(TUESDAY, 9), key="wa:synthetic-metrics-0001")
+    absent = await confirmed(world, local(TUESDAY, 11), key="web:synthetic-metrics-0002")
+    cancelled = await held(world, local(TUESDAY, 15))
+    await api.ok(
+        "post", f"/bookings/{cancelled.id}/cancel", {"expected_version": cancelled.version}
+    )
+    async with world.session.begin():
+        for index, marketing in enumerate((True, False)):
+            world.session.add(
+                Lead(
+                    id=uuid4(),
+                    name="Lead Sintética",
+                    phone_e164=f"+55219000001{index}",
+                    source="site_form",
+                    status="new",
+                    service_id=world.service_id,
+                    contact_consent_at=NOW,
+                    marketing_consent_at=NOW if marketing else None,
+                    retain_until=NOW + timedelta(days=90),
+                    created_at=NOW,
+                )
+            )
+    api.now[0] = local(TUESDAY, 13)
+    for item, mark in ((attended, "attended"), (absent, "no_show")):
+        current = await api.ok("get", f"/bookings/{item.id}")
+        await api.ok(
+            "post",
+            f"/bookings/{item.id}/attendance",
+            {"expected_version": current["version"], "attendance": mark},
+        )
+    metrics = await api.ok("get", "/metrics?days=30")
+    assert (metrics["leads_total"], metrics["leads_marketing_consent"]) == (2, 1)
+    assert metrics["bookings_requested"] == 3 and metrics["deposits_confirmed"] == 2
+    assert {item["key"]: item["count"] for item in metrics["bookings_by_origin"]} == {
+        "whatsapp": 1,
+        "site": 1,
+        "other": 1,
+    }
+    assert (metrics["appointments"], metrics["attended"], metrics["no_show"]) == (2, 1, 1)
+    assert metrics["cancellations"] == [{"key": "cancelled_by_staff", "count": 1}]
+    assert metrics["demand_by_service"] == [{"key": "Synthetic procedure", "count": 3}]
+    assert (await api.call("get", "/metrics?days=0")).status_code == 422

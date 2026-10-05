@@ -59,6 +59,8 @@ def still_relevant(event: str, booking: Booking, now: datetime) -> bool:
         return booking.expires_at is not None and now < booking.expires_at
     if event in ("reminder_24h", "reminder_2h"):
         return now < booking.starts_at
+    if event == "aftercare":
+        return booking.attendance != "no_show"  # recommendations only after a visit
     return True
 
 

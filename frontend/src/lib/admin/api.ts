@@ -1,5 +1,5 @@
 import type { RequestTicket } from "./session";
-import { BOOKING_STATUSES, LEAD_STATUSES, type AdminIdentity, type Booking, type Integrations, type Lead, type Professional, type Schedule, type Service, type ServiceContent, type SiteSettings } from "./types";
+import { BOOKING_STATUSES, LEAD_STATUSES, type AdminIdentity, type Booking, type BookingEvent, type Count, type Integrations, type Lead, type Metrics, type Professional, type Schedule, type Service, type ServiceContent, type SiteSettings } from "./types";
 
 export class AdminApiError extends Error {
   status: number;
@@ -51,7 +51,8 @@ const ADMIN_PATHS = [
   /^\/api\/admin\/leads\?status=(new|contacted|converted|discarded)$/,
   new RegExp(`^/api/admin/leads/${ID}/status$`),
   /^\/api\/admin\/bookings\?scope=(upcoming|history)$/,
-  new RegExp(`^/api/admin/bookings/${ID}/(deposit|cancel|resolve|reschedule|manage-link)$`),
+  new RegExp(`^/api/admin/bookings/${ID}/(deposit|cancel|resolve|reschedule|manage-link|attendance|events)$`),
+  /^\/api\/admin\/metrics\?days=(7|30|90|365)$/,
   new RegExp(`^/api/admin/availability\\?service_id=${ID}&professional_id=${ID}&first_day=\\d{4}-\\d{2}-\\d{2}&days=\\d{1,2}$`),
 ];
 
@@ -180,6 +181,8 @@ export function decodeBookings(value: unknown): Booking[] {
       deposit_brl: money(data.deposit_brl), deposit_confirmed_at: nullable(data.deposit_confirmed_at),
       calendar_status: str(data.calendar_status), reschedule_count: integer(data.reschedule_count),
       rescheduled_from_id: nullable(data.rescheduled_from_id), closed_reason: nullable(data.closed_reason),
+      attendance: data.attendance === null || data.attendance === undefined ? null : oneOf(data.attendance, ["attended", "no_show"] as const),
+      origin: oneOf(data.origin ?? "other", ["whatsapp", "site", "reschedule", "other"] as const),
     };
   });
 }
@@ -262,5 +265,32 @@ export function decodeSiteSettings(value: unknown): SiteSettings {
       }),
       legal_contact: nullable(content.legal_contact), deposit_instructions: nullable(content.deposit_instructions),
     },
+  };
+}
+
+export function decodeEvents(value: unknown): BookingEvent[] {
+  return list(value, (item) => {
+    const data = row(item);
+    return {
+      action: str(data.action), from_status: nullable(data.from_status), to_status: str(data.to_status),
+      actor: oneOf(data.actor, ["system", "staff", "client"] as const), at: str(data.at),
+    };
+  });
+}
+
+function counts(value: unknown): Count[] {
+  return list(value, (item) => { const data = row(item); return { key: str(data.key), count: integer(data.count) }; });
+}
+
+export function decodeMetrics(value: unknown): Metrics {
+  const data = row(value);
+  return {
+    days: integer(data.days), leads_total: integer(data.leads_total), leads_by_status: counts(data.leads_by_status),
+    leads_marketing_consent: integer(data.leads_marketing_consent), bookings_requested: integer(data.bookings_requested),
+    bookings_by_origin: counts(data.bookings_by_origin), deposits_confirmed: integer(data.deposits_confirmed),
+    appointments: integer(data.appointments), attended: integer(data.attended), no_show: integer(data.no_show),
+    attendance_unmarked: integer(data.attendance_unmarked), cancellations: counts(data.cancellations),
+    reschedules: integer(data.reschedules), expired: counts(data.expired), demand_by_service: counts(data.demand_by_service),
+    handoffs_by_reason: counts(data.handoffs_by_reason), upcoming_confirmed_7d: integer(data.upcoming_confirmed_7d),
   };
 }

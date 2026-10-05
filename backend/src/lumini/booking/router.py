@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lumini.auth import AdminPrincipal, require_admin
-from lumini.booking import queries, schedule
+from lumini.booking import metrics, queries, schedule
 from lumini.booking import service as booking
 from lumini.booking.calendar import (
     CalendarAdapter,
@@ -26,14 +26,17 @@ from lumini.booking.calendar import (
 )
 from lumini.booking.links import manage_url
 from lumini.booking.schemas import (
+    AttendanceRequest,
     AvailabilityQuery,
     AvailabilityView,
     BookingAdminView,
+    BookingEventView,
     BookingScope,
     BookingVersion,
     ConflictResolution,
     DepositConfirmation,
     ManageLinkView,
+    MetricsView,
     ScheduleUpdate,
     ScheduleView,
     StaffReschedule,
@@ -259,3 +262,32 @@ async def manage_link(
             return ManageLinkView(url=url, expires_at=item.starts_at)
 
     return await _guard(issue())
+
+
+@router.post("/bookings/{booking_id}/attendance", response_model=BookingAdminView)
+async def attendance(
+    actor: Admin, session: Session, now: Now, booking_id: UUID, data: AttendanceRequest
+) -> BookingAdminView:
+    result = await _guard(
+        booking.mark_attendance(
+            session,
+            booking_id,
+            actor=booking.Actor.staff(actor.subject),
+            expected_version=data.expected_version,
+            attendance=data.attendance,
+            now=now,
+        )
+    )
+    return await _guard(queries.get_booking(session, result.id))
+
+
+@router.get("/bookings/{booking_id}/events", response_model=list[BookingEventView])
+async def events(actor: Admin, session: Session, booking_id: UUID) -> list[BookingEventView]:
+    return await _guard(queries.booking_events(session, booking_id))
+
+
+@router.get("/metrics", response_model=MetricsView)
+async def dashboard(
+    actor: Admin, session: Session, now: Now, days: Annotated[int, Query(ge=1, le=365)] = 30
+) -> MetricsView:
+    return await _guard(metrics.collect(session, now=now, days=days))

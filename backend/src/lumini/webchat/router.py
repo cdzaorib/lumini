@@ -147,6 +147,7 @@ async def message(
                 assistant=getattr(request.app.state, "assistant", None),
                 high_confidence=settings.ai_high_confidence,
                 medium_confidence=settings.ai_medium_confidence,
+                channel="web",
             ),
             state,
             data.text,

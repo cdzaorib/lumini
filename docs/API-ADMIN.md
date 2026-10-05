@@ -105,3 +105,9 @@ Credencial = token do link (HMAC-SHA256 sobre reserva + validade até o início 
 
 - `GET /api/admin/site` → `{revision, content, updated_at}` (revisão 0 = nunca preenchido); `PUT /api/admin/site` com `{expected_revision, content}` → 409 se desatualizado; 422 sem eco quando um texto promete resultado (regra de publicidade) ou um campo é inválido. `content`: `address {street, city, maps_url?}`, `hours[]`, `whatsapp`, `instagram`, `differentiators[]` (≤ 8), `faq[{question, answer}]` (≤ 20), `testimonials[{quote, author, authorized_on, authorization_confirmed: true}]` (≤ 10), `legal_contact`, `deposit_instructions`. Auditoria `site.updated` só com ids.
 - `GET /api/public/site` (sem login, `Cache-Control: public, max-age=60`) → mesmo conteúdo **sem** `deposit_instructions` e sem dados de autorização dos depoimentos.
+
+## Comparecimento, histórico e métricas (T11b)
+
+- `POST /api/admin/bookings/{id}/attendance` com `{expected_version, attendance: attended|no_show}`: só reservas confirmadas e depois do início (`too_early`); depois disso a reserva não aceita cancelamento nem reagendamento (`attendance_recorded`). Faltas não recebem a mensagem de recomendações pós-procedimento.
+- `GET /api/admin/bookings/{id}/events` → `[{action, from_status, to_status, actor: system|staff|client, at}]` (sem identificar a pessoa da equipe).
+- `GET /api/admin/metrics?days=1..365` → contagens do período (pedidos de contato por situação e com consentimento de marketing, reservas pedidas e por origem, sinais confirmados, atendimentos/comparecimentos/faltas/sem marcação, cancelamentos por motivo, reagendamentos, expirações por motivo, procura por procedimento, conversas com a equipe por motivo, confirmados nos próximos 7 dias). `BookingAdminView` ganhou `attendance` e `origin`.

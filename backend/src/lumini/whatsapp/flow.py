@@ -112,6 +112,7 @@ class Context:
     phone: str | None
     now: datetime
     assistant: Assistant | None = None
+    channel: str = "wa"  # booking origin in the idempotency key: "wa" (WhatsApp) or "web"
     high_confidence: float = 0.85
     medium_confidence: float = 0.6
     _catalog: list[PublicService] | None = field(default=None, repr=False)
@@ -464,7 +465,7 @@ async def _confirm(ctx: Context, state: dict[str, Any], text: str) -> Reply | No
     # Same conversation + same choice = same key: repeating "1" never creates a second hold.
     raw = f"{ctx.conversation_id}:{service_id}:{professional_id}:{slot}"
     request = HoldRequest(
-        idempotency_key="wa:" + hashlib.sha256(raw.encode()).hexdigest()[:40],
+        idempotency_key=f"{ctx.channel}:" + hashlib.sha256(raw.encode()).hexdigest()[:40],
         service_id=uuid.UUID(str(service_id)),
         professional_id=uuid.UUID(str(professional_id)),
         starts_at=datetime.fromisoformat(str(slot)),

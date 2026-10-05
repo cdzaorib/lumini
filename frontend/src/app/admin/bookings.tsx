@@ -2,9 +2,9 @@
 
 import { useId, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 
-import { decodeManageLink, decodeSlots } from "@/lib/admin/api";
+import { decodeEvents, decodeManageLink, decodeSlots } from "@/lib/admin/api";
 import { amount } from "@/lib/admin/forms";
-import type { Booking, BookingScope, BookingStatus, Command, Mutation, Query } from "@/lib/admin/types";
+import type { Booking, BookingEvent, BookingScope, BookingStatus, Command, Mutation, Query } from "@/lib/admin/types";
 
 import { clinicDay, focus, formatDate, formatDay, formatMoney, formatTime, rescueFocus, ui } from "./ui";
 
@@ -17,6 +17,58 @@ const STATUS: Record<BookingStatus, string> = {
   cancelled: "Cancelada",
   conflict: "Conflito · decisão da equipe",
 };
+
+const ORIGIN: Record<Booking["origin"], string> = {
+  whatsapp: "WhatsApp",
+  site: "Chat do site",
+  reschedule: "Reagendamento",
+  other: "Equipe/outros",
+};
+
+const ACTIONS: Record<string, string> = {
+  hold_requested: "Reserva pedida",
+  held: "Horário reservado",
+  deposit_confirmed: "Sinal conferido",
+  confirmed: "Confirmada na agenda",
+  expired: "Expirou",
+  cancelled: "Cancelada",
+  rescheduled: "Reagendada",
+  rescheduled_from: "Criada por reagendamento",
+  calendar_conflict: "Conflito na agenda",
+  calendar_rejected: "Agenda recusou",
+  conflict_released: "Horário liberado",
+  conflict_retry: "Nova tentativa na agenda",
+  calendar_drift: "Agenda corrigida (alteração manual no Google)",
+  manage_link_issued: "Link gerado pela equipe",
+  attended: "Compareceu",
+  no_show: "Faltou",
+};
+const ACTORS: Record<BookingEvent["actor"], string> = { system: "sistema", staff: "equipe", client: "cliente" };
+
+function History({ path, query }: { path: string; query: Query }) {
+  const [events, setEvents] = useState<BookingEvent[] | null>(null);
+  return (
+    <details
+      className="mt-3"
+      onToggle={(event) => {
+        if (event.currentTarget.open && events === null) void query(path, decodeEvents).then((found) => setEvents(found ?? []));
+      }}
+    >
+      <summary className={ui.summary}>Histórico</summary>
+      {events === null ? (
+        <p className={ui.hint} aria-busy="true">Carregando…</p>
+      ) : (
+        <ol className="mt-2 flex flex-col gap-1 text-sm">
+          {events.map((item, index) => (
+            <li key={`${item.at}-${index}`}>
+              {formatDate(item.at)} · {ACTIONS[item.action] ?? item.action} · {ACTORS[item.actor]}
+            </li>
+          ))}
+        </ol>
+      )}
+    </details>
+  );
+}
 
 const REASONS: Record<string, string> = {
   deposit_timeout: "O prazo do sinal venceu.",
@@ -192,7 +244,23 @@ function BookingCard({
         {booking.closed_reason && (
           <Detail term="Situação">{REASONS[booking.closed_reason] ?? booking.closed_reason}</Detail>
         )}
+        <Detail term="Origem">{ORIGIN[booking.origin]}</Detail>
+        {booking.attendance && <Detail term="Comparecimento">{booking.attendance === "attended" ? "Compareceu" : "Faltou"}</Detail>}
       </dl>
+      {booking.status === "confirmed" && !booking.attendance && new Date(booking.starts_at) <= new Date() && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-sm">Comparecimento:</span>
+          <button type="button" className={ui.secondary} disabled={busy}
+            onClick={() => void act("attendance", { attendance: "attended" }, "Comparecimento registrado.")}>
+            Compareceu
+          </button>
+          <button type="button" className={ui.secondary} disabled={busy}
+            onClick={() => void act("attendance", { attendance: "no_show" }, "Falta registrada. Recomendações pós-procedimento não serão enviadas.")}>
+            Faltou
+          </button>
+        </div>
+      )}
+      <History path={`${path}/events`} query={query} />
 
       {active && (
         <div className="mt-4 flex flex-col gap-3">

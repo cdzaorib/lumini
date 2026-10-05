@@ -75,6 +75,31 @@ export type Booking = {
   reschedule_count: number;
   rescheduled_from_id: string | null;
   closed_reason: string | null;
+  attendance: "attended" | "no_show" | null;
+  origin: "whatsapp" | "site" | "reschedule" | "other";
+};
+
+export type BookingEvent = { action: string; from_status: string | null; to_status: string; actor: "system" | "staff" | "client"; at: string };
+
+export type Count = { key: string; count: number };
+export type Metrics = {
+  days: number;
+  leads_total: number;
+  leads_by_status: Count[];
+  leads_marketing_consent: number;
+  bookings_requested: number;
+  bookings_by_origin: Count[];
+  deposits_confirmed: number;
+  appointments: number;
+  attended: number;
+  no_show: number;
+  attendance_unmarked: number;
+  cancellations: Count[];
+  reschedules: number;
+  expired: Count[];
+  demand_by_service: Count[];
+  handoffs_by_reason: Count[];
+  upcoming_confirmed_7d: number;
 };
 
 export type ScheduleRule = { weekday: number; start: string; end: string };

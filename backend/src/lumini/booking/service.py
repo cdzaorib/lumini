@@ -14,7 +14,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Literal
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -684,6 +684,8 @@ async def cancel_booking(
         _check_version(booking, expected_version)
         if booking.status not in ACTIVE_BOOKING_STATUSES:
             raise BookingConflict("Booking is no longer active", "invalid_state")
+        if booking.attendance is not None:
+            raise BookingConflict("Attendance already recorded", "attendance_recorded")
         if actor.type == "client":
             refusal = client_cancel_refusal(booking, now, policy)
             if refusal is not None:
@@ -732,6 +734,8 @@ def client_reschedule_refusal(booking: Booking, now: datetime, policy: BookingPo
 def _check_reschedule(booking: Booking, actor: Actor, now: datetime, policy: BookingPolicy) -> None:
     if booking.status != "confirmed":
         raise BookingConflict("Only confirmed bookings can be rescheduled", "invalid_state")
+    if booking.attendance is not None:
+        raise BookingConflict("Attendance already recorded", "attendance_recorded")
     if actor.type == "client":
         refusal = client_reschedule_refusal(booking, now, policy)
         if refusal is not None:
@@ -900,9 +904,40 @@ async def enqueue_due_notifications(
                 Booking.status == "confirmed",
                 Booking.ends_at <= now,
                 Booking.ends_at > now - policy.aftercare_window,
+                or_(Booking.attendance.is_(None), Booking.attendance != "no_show"),
             )
         )
         for booking_id in finished:
             await enqueue_notification(session, booking_id, "aftercare", now)
             count += 1
     return count
+
+
+Attendance = Literal["attended", "no_show"]
+
+
+async def mark_attendance(
+    session: AsyncSession,
+    booking_id: uuid.UUID,
+    *,
+    actor: Actor,
+    expected_version: int,
+    attendance: Attendance,
+    now: datetime,
+) -> Booking:
+    """Staff record whether a confirmed appointment happened, once it has started."""
+    if actor.type != "staff" or not actor.subject:
+        raise BookingConflict("Only authenticated staff can record attendance", "forbidden")
+    async with session.begin():
+        booking = await _locked(session, booking_id)
+        _check_version(booking, expected_version)
+        if booking.status != "confirmed":
+            raise BookingConflict("Only confirmed bookings have attendance", "invalid_state")
+        if booking.starts_at > now:
+            raise BookingConflict("The appointment has not started yet", "too_early")
+        booking.attendance = attendance
+        booking.attendance_marked_at = now
+        booking.attendance_marked_by = actor.subject
+        booking.version += 1
+        _record(session, booking, attendance, booking.status, actor)
+    return booking

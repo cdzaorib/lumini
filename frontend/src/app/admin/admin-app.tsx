@@ -23,17 +23,19 @@ import { AgendaSection } from "./agenda";
 import { BookingsSection } from "./bookings";
 import { IntegrationsSection, attentionText } from "./integrations";
 import { LeadsSection } from "./leads";
+import { MetricsSection } from "./metrics";
 import { SiteContentSection } from "./site-content";
 import { ProfessionalsSection } from "./professionals";
 import { ServicesSection } from "./services";
 import { ui } from "./ui";
 
 type Notice = { kind: "success" | "error"; text: string } | null;
-type View = "bookings" | "leads" | "agenda" | "catalog" | "site" | "integrations";
+type View = "bookings" | "leads" | "summary" | "agenda" | "catalog" | "site" | "integrations";
 
 const VIEWS: { id: View; label: string }[] = [
   { id: "bookings", label: "Reservas" },
   { id: "leads", label: "Contatos" },
+  { id: "summary", label: "Resumo" },
   { id: "agenda", label: "Agenda" },
   { id: "catalog", label: "Catálogo" },
   { id: "site", label: "Site" },
@@ -382,6 +384,7 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
             {view === "integrations" && <IntegrationsSection integrations={integrations} />}
             {view === "leads" && <LeadsSection initial={leads} mutate={mutate} query={query} busy={busy} />}
             {view === "site" && <SiteContentSection mutate={mutate} query={query} busy={busy} />}
+            {view === "summary" && <MetricsSection query={query} busy={busy} />}
             {view === "catalog" && (
               <div className="flex flex-col gap-12">
                 <ProfessionalsSection professionals={catalog.professionals} mutate={mutate} busy={busy} />

@@ -144,6 +144,7 @@ async def test_booking_from_the_website_asks_for_whatsapp_and_keeps_no_text(chat
         conversation = await chat.session.scalar(select(Conversation))
         messages = await chat.session.scalar(select(func.count()).select_from(WhatsAppMessage))
     assert booking is not None and booking.starts_at == local(TUESDAY, 8)
+    assert booking.idempotency_key.startswith("web:")  # origin shown in the metrics
     assert contact is not None and (contact.name, contact.phone_e164) == (
         "Bia Sintética",
         "+5521977776666",

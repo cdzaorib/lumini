@@ -129,6 +129,8 @@ class BookingAdminView(BaseModel):
     rescheduled_from_id: UUID | None
     closed_reason: str | None
     created_at: datetime
+    attendance: str | None = None
+    origin: str = "other"  # whatsapp | site | reschedule | other
 
 
 class PublicBooking(BaseModel):
@@ -166,3 +168,40 @@ class PublicAvailabilityQuery(BaseModel):
 class ManageLinkView(BaseModel):
     url: str
     expires_at: datetime
+
+
+class AttendanceRequest(BookingVersion):
+    attendance: Literal["attended", "no_show"]
+
+
+class BookingEventView(BaseModel):
+    action: str
+    from_status: str | None
+    to_status: str
+    actor: str  # system | staff | client (no personal identifiers)
+    at: datetime
+
+
+class Count(BaseModel):
+    key: str
+    count: int
+
+
+class MetricsView(BaseModel):
+    days: int
+    leads_total: int
+    leads_by_status: list[Count]
+    leads_marketing_consent: int
+    bookings_requested: int
+    bookings_by_origin: list[Count]
+    deposits_confirmed: int
+    appointments: int
+    attended: int
+    no_show: int
+    attendance_unmarked: int
+    cancellations: list[Count]
+    reschedules: int
+    expired: list[Count]
+    demand_by_service: list[Count]
+    handoffs_by_reason: list[Count]
+    upcoming_confirmed_7d: int
