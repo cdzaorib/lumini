@@ -678,3 +678,30 @@ async def test_model_calls_are_accounted_without_text(channel: Channelled) -> No
         "completion_tokens",
         "created_at",
     }
+
+
+async def test_deposit_instructions_come_from_the_panel_when_filled(channel: Channelled) -> None:
+    from lumini.auth import AdminPrincipal
+    from lumini.site.service import SiteContent, SiteUpdate, put_site
+
+    booking = await held(channel.world, local(TUESDAY, 10), phone=PHONE)
+    async with channel.sessions() as session:
+        notifier = WhatsAppNotifier(session, channel.sender, channel.app.state.settings, now=NOW)
+        assert await notifier.send("deposit_instructions", booking.id) is None
+    assert channel.sender.texts()[-1].startswith("Sobre o sinal de R$ 50,00: a equipe")
+
+    other = await held(channel.world, local(TUESDAY, 15), phone=PHONE)
+    async with channel.sessions() as session:
+        await put_site(
+            session,
+            AdminPrincipal(subject="s", email="s@example.invalid", reviewer_professional_ids=()),
+            SiteUpdate(
+                expected_revision=0,
+                content=SiteContent(deposit_instructions="Pix sintético: chave-ficticia-123"),
+            ),
+            now=NOW,
+        )
+        notifier = WhatsAppNotifier(session, channel.sender, channel.app.state.settings, now=NOW)
+        assert await notifier.send("deposit_instructions", other.id) is None
+    last = channel.sender.texts()[-1]
+    assert "chave-ficticia-123" in last and "comprovante não confirma sozinho" in last

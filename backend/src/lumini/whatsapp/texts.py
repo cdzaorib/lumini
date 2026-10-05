@@ -98,6 +98,12 @@ NOTIFICATIONS = {
         "Sobre o sinal de {deposit}: a equipe da clínica vai enviar os dados de pagamento por "
         "aqui. Depois do pagamento, a confirmação é feita pela clínica e você recebe uma mensagem."
     ),
+    # Used instead of the one above when the clinic filled the instructions in the panel.
+    "deposit_instructions_configured": (
+        "Para confirmar, pague o sinal de {deposit}:\n{instructions}\nDepois do pagamento, a "
+        "confirmação é feita pela clínica (comprovante não confirma sozinho) e você recebe uma "
+        "mensagem."
+    ),
     "hold_expiring": (
         "Sua reserva de {day}, às {time}, termina às {deadline}. Se você já pagou o sinal, a "
         "equipe está conferindo."

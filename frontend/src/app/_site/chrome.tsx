@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { site, sitePreview } from "@/content/site";
+import { whatsappLink, type SiteContent } from "@/lib/public/site";
 
 export const container = "mx-auto w-[min(100%-2rem,1120px)]";
 const focus = "focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-lumini-rose";
@@ -28,14 +29,24 @@ export function SiteHeader() {
   );
 }
 
-export function SiteFooter() {
+export function SiteFooter({ content }: { content: SiteContent }) {
   return (
     <footer className="mt-20 border-t border-lumini-gold/40 text-sm text-lumini-muted">
       <div className={`${container} flex flex-col gap-4 py-8 sm:flex-row sm:justify-between`}>
         <div className="flex flex-col gap-1">
           <span className="text-lumini-ink">{site.name}</span>
           <span>{site.region}</span>
-          {site.address && <span>{site.address.street}</span>}
+          {content.address && <span>{content.address.street} · {content.address.city}</span>}
+          {content.whatsapp && (
+            <a className={`underline ${focus}`} href={whatsappLink(content.whatsapp)} target="_blank" rel="noopener noreferrer">
+              WhatsApp da clínica
+            </a>
+          )}
+          {content.instagram && (
+            <a className={`underline ${focus}`} href={`https://www.instagram.com/${content.instagram}/`} target="_blank" rel="noopener noreferrer">
+              Instagram @{content.instagram}
+            </a>
+          )}
         </div>
         <nav aria-label="Informações legais" className="flex flex-wrap gap-x-5 gap-y-2">
           <Link className={`underline ${focus}`} href="/privacidade">Privacidade</Link>

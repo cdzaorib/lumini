@@ -25,7 +25,7 @@ export type PublicService = {
   professionals: PublicProfessional[];
 };
 
-function serverApiOrigin(): string | null {
+export function serverApiOrigin(): string | null {
   // A private network address (e.g. Railway internal) may be configured for server-side calls.
   const internal = process.env.LUMINI_API_INTERNAL_URL;
   if (internal) {

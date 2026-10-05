@@ -1,5 +1,5 @@
 import type { RequestTicket } from "./session";
-import { BOOKING_STATUSES, LEAD_STATUSES, type AdminIdentity, type Booking, type Integrations, type Lead, type Professional, type Schedule, type Service, type ServiceContent } from "./types";
+import { BOOKING_STATUSES, LEAD_STATUSES, type AdminIdentity, type Booking, type Integrations, type Lead, type Professional, type Schedule, type Service, type ServiceContent, type SiteSettings } from "./types";
 
 export class AdminApiError extends Error {
   status: number;
@@ -27,6 +27,7 @@ const CODE_MESSAGES: Record<string, string> = {
   too_close: "Horários com menos de 3 horas de antecedência não são marcados pelo sistema.",
   slot_unavailable: "Esse horário não está mais disponível. Atualize a prévia e escolha outro.",
   not_found: "Registro não encontrado. Recarregue a página.",
+  advertising_rule: "Algum texto promete resultado (por exemplo “garantido”, “definitivo”, “sem dor”, “antes e depois”). Publicidade em saúde não pode prometer resultados: ajuste o texto.",
 };
 
 export function adminErrorMessage(status: number, code: string | null = null): string {
@@ -46,6 +47,7 @@ const ADMIN_PATHS = [
   /^\/api\/admin\/(me|professionals|services)(\/[a-zA-Z0-9-]+)?(\/(verify|revoke|approve|publish|unpublish))?$/,
   new RegExp(`^/api/admin/professionals/${ID}/schedule$`),
   /^\/api\/admin\/integrations$/,
+  /^\/api\/admin\/site$/,
   /^\/api\/admin\/leads\?status=(new|contacted|converted|discarded)$/,
   new RegExp(`^/api/admin/leads/${ID}/status$`),
   /^\/api\/admin\/bookings\?scope=(upcoming|history)$/,
@@ -79,7 +81,11 @@ export async function adminRequest(
 
 async function errorCode(response: Response): Promise<string | null> {
   try {
-    const code: unknown = ((await response.json()) as { code?: unknown }).code;
+    const body = (await response.json()) as { code?: unknown; detail?: unknown };
+    if (Array.isArray(body.detail) && body.detail.some((item) => typeof item?.msg === "string" && item.msg.includes("Advertising rule"))) {
+      return "advertising_rule";
+    }
+    const code = body.code;
     return typeof code === "string" && /^[a-z_]{1,40}$/.test(code) ? code : null;
   } catch {
     return null;
@@ -237,4 +243,24 @@ export function decodeLeads(value: unknown): Lead[] {
       created_at: str(data.created_at), retain_until: str(data.retain_until),
     };
   });
+}
+
+export function decodeSiteSettings(value: unknown): SiteSettings {
+  const data = row(value);
+  const content = row(data.content);
+  const address = content.address === null ? null : row(content.address);
+  return {
+    revision: integer(data.revision),
+    content: {
+      address: address && { street: str(address.street), city: str(address.city), maps_url: nullable(address.maps_url) },
+      hours: list(content.hours, str), whatsapp: nullable(content.whatsapp), instagram: nullable(content.instagram),
+      differentiators: list(content.differentiators, str),
+      faq: list(content.faq, (item) => { const entry = row(item); return { question: str(entry.question), answer: str(entry.answer) }; }),
+      testimonials: list(content.testimonials, (item) => {
+        const entry = row(item);
+        return { quote: str(entry.quote), author: str(entry.author), authorized_on: str(entry.authorized_on), authorization_confirmed: true as const };
+      }),
+      legal_contact: nullable(content.legal_contact), deposit_instructions: nullable(content.deposit_instructions),
+    },
+  };
 }

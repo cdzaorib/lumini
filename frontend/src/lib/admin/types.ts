@@ -109,3 +109,18 @@ export type Lead = {
   created_at: string;
   retain_until: string;
 };
+
+export type SiteSettings = {
+  revision: number;
+  content: {
+    address: { street: string; city: string; maps_url: string | null } | null;
+    hours: string[];
+    whatsapp: string | null;
+    instagram: string | null;
+    differentiators: string[];
+    faq: { question: string; answer: string }[];
+    testimonials: { quote: string; author: string; authorized_on: string; authorization_confirmed: true }[];
+    legal_contact: string | null;
+    deposit_instructions: string | null;
+  };
+};

@@ -100,3 +100,8 @@ Credencial = token do link (HMAC-SHA256 sobre reserva + validade até o início 
 
 - `POST /api/public/chat/session` → 201 `{token, replies, options}`. Token aleatório (43 caracteres) guardado só pelo navegador; o servidor guarda o hash. Limite de 20 sessões por endereço a cada 10 min.
 - `POST /api/public/chat/messages` com `Authorization: Bearer <token>` e `{text}` (≤ 1000) → `{replies, options}`; `options` são as opções numeradas da última resposta. Erros com `{detail: {code}}`: 404 `session_invalid` (token malformado, desconhecido ou com mais de 24 h; recusado antes do banco), 409 `stale` (duas mensagens ao mesmo tempo; reenviar), 429 `rate_limited` (60 por sessão a cada 10 min), 503 `chat_unavailable`. Nenhum texto é gravado.
+
+## Conteúdo do site (T11a)
+
+- `GET /api/admin/site` → `{revision, content, updated_at}` (revisão 0 = nunca preenchido); `PUT /api/admin/site` com `{expected_revision, content}` → 409 se desatualizado; 422 sem eco quando um texto promete resultado (regra de publicidade) ou um campo é inválido. `content`: `address {street, city, maps_url?}`, `hours[]`, `whatsapp`, `instagram`, `differentiators[]` (≤ 8), `faq[{question, answer}]` (≤ 20), `testimonials[{quote, author, authorized_on, authorization_confirmed: true}]` (≤ 10), `legal_contact`, `deposit_instructions`. Auditoria `site.updated` só com ids.
+- `GET /api/public/site` (sem login, `Cache-Control: public, max-age=60`) → mesmo conteúdo **sem** `deposit_instructions` e sem dados de autorização dos depoimentos.

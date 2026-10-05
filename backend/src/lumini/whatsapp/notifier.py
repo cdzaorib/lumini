@@ -15,6 +15,7 @@ from lumini.booking.dispatch import NotifierUnavailable
 from lumini.booking.links import manage_url
 from lumini.models import Booking, Contact, Conversation, Professional, Service
 from lumini.settings import Settings
+from lumini.site.service import deposit_instructions
 from lumini.whatsapp import texts
 from lumini.whatsapp.conversations import conversation_for, send_automatic, set_mode
 from lumini.whatsapp.evolution import WhatsAppSender, WhatsAppUnavailable
@@ -100,7 +101,16 @@ class WhatsAppNotifier:
             if not items:
                 return "no_aftercare"
             values["aftercare"] = "\n".join(f"• {item}" for item in items)
-        template = texts.NOTIFICATIONS.get(event)
+        if event == "deposit_instructions":
+            instructions = await deposit_instructions(self._session)
+            if instructions:
+                values["instructions"] = instructions
+        key = (
+            "deposit_instructions_configured"
+            if event == "deposit_instructions" and "instructions" in values
+            else event
+        )
+        template = texts.NOTIFICATIONS.get(key)
         if template is None:
             return "unknown_event"
         conversation_id = await self._conversation(phone)

@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { site } from "@/content/site";
 import { readApiOrigin } from "@/lib/api-origin";
 import { getCatalog, priceText, professionalsOf, type PublicService } from "@/lib/public/catalog";
+import { getSiteContent, whatsappLink, type SiteContent } from "@/lib/public/site";
 
 import { ChatWidget } from "./_site/chat-widget";
 import { LeadForm } from "./_site/lead-form";
@@ -32,6 +33,24 @@ const POLICIES = [
   "Horários com menos de 3 horas de antecedência são combinados diretamente com a equipe.",
 ];
 
+// Structured data for local search, only with the address the clinic confirmed in the panel.
+function LocalBusiness({ content, nonce }: { content: SiteContent; nonce?: string }) {
+  const origin = process.env.LUMINI_PUBLIC_SITE_URL?.replace(/\/$/, "");
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "HealthAndBeautyBusiness",
+    name: site.name,
+    areaServed: site.region,
+    address: { "@type": "PostalAddress", streetAddress: content.address?.street, addressLocality: content.address?.city, addressCountry: "BR" },
+    ...(content.whatsapp ? { telephone: content.whatsapp } : {}),
+    ...(content.hours.length ? { openingHours: content.hours } : {}),
+    ...(origin ? { url: origin } : {}),
+  };
+  // JSON.stringify escapes quotes; "<" is escaped so text can never close the script element.
+  const json = JSON.stringify(data).replace(/</g, "\\u003c");
+  return <script type="application/ld+json" nonce={nonce} dangerouslySetInnerHTML={{ __html: json }} />;
+}
+
 function ServiceCard({ service }: { service: PublicService }) {
   return (
     <li className="flex flex-col border border-lumini-gold/40 bg-lumini-white/70 p-6">
@@ -50,8 +69,8 @@ function ServiceCard({ service }: { service: PublicService }) {
 }
 
 export default async function HomePage() {
-  await headers(); // rendered per request so the CSP nonce reaches every script
-  const catalog = await getCatalog();
+  const nonce = (await headers()).get("x-nonce") ?? undefined; // per request: CSP nonce
+  const [catalog, content] = await Promise.all([getCatalog(), getSiteContent()]);
   const apiOrigin = readApiOrigin(process.env.NEXT_PUBLIC_API_BASE_URL, process.env.NODE_ENV);
   const services = catalog ?? [];
   const categories = [...new Set(services.map((service) => service.category))].sort((a, b) => a.localeCompare(b, "pt-BR"));
@@ -73,6 +92,11 @@ export default async function HomePage() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link className={primaryLink} href="#contato">Quero ser contatada</Link>
+              {content.whatsapp && (
+                <a className={secondaryLink} href={whatsappLink(content.whatsapp, "Olá! Vim pelo site da Lumini.")} target="_blank" rel="noopener noreferrer">
+                  Conversar no WhatsApp
+                </a>
+              )}
               <Link className={secondaryLink} href="/atendimento">Tirar dúvidas agora</Link>
             </div>
           </div>
@@ -133,12 +157,22 @@ export default async function HomePage() {
         </Section>
 
         <Section id="diferenciais" eyebrow="A Lumini" title="Por que a Lumini">
-          {site.differentiators ? (
+          {content.differentiators.length > 0 ? (
             <ul className="grid gap-4 sm:grid-cols-2">
-              {site.differentiators.map((item) => <li key={item} className="border-l-2 border-lumini-gold pl-4">{item}</li>)}
+              {content.differentiators.map((item) => <li key={item} className="border-l-2 border-lumini-gold pl-4">{item}</li>)}
             </ul>
           ) : (
-            <Pending what="diferenciais da clínica (texto aprovado) e fotos autorizadas" />
+            <Pending what="diferenciais da clínica (aba Site do painel) e fotos autorizadas" />
+          )}
+          {content.testimonials.length > 0 && (
+            <ul className="mt-10 grid gap-5 sm:grid-cols-2" aria-label="Depoimentos autorizados">
+              {content.testimonials.map((item) => (
+                <li key={item.quote} className="border border-lumini-gold/40 bg-lumini-white/70 p-6">
+                  <blockquote className="font-display text-xl leading-snug">“{item.quote}”</blockquote>
+                  <p className="mt-3 text-sm text-lumini-muted">— {item.author}</p>
+                </li>
+              ))}
+            </ul>
           )}
         </Section>
 
@@ -148,10 +182,10 @@ export default async function HomePage() {
           </ul>
         </Section>
 
-        {site.faq ? (
+        {content.faq.length > 0 ? (
           <Section id="duvidas" eyebrow="Dúvidas" title="Perguntas frequentes">
             <div className="max-w-3xl">
-              {site.faq.map((item) => (
+              {content.faq.map((item) => (
                 <details key={item.question} className="border-b border-lumini-gold/40 py-4">
                   <summary className="cursor-pointer font-medium">{item.question}</summary>
                   <p className="mt-3 leading-relaxed text-lumini-muted">{item.answer}</p>
@@ -161,18 +195,25 @@ export default async function HomePage() {
           </Section>
         ) : (
           <Section id="duvidas" eyebrow="Dúvidas" title="Perguntas frequentes">
-            <Pending what="perguntas frequentes aprovadas" />
+            <Pending what="perguntas frequentes (aba Site do painel)" />
           </Section>
         )}
 
         <Section id="localizacao" eyebrow="Onde estamos" title="Localização e horários">
-          {site.address && site.hours ? (
+          {content.address ? (
             <div className="grid gap-6 sm:grid-cols-2">
-              <p className="leading-relaxed">{site.address.street}<br />{site.address.city}</p>
-              <ul>{site.hours.map((line) => <li key={line}>{line}</li>)}</ul>
+              <div>
+                <p className="leading-relaxed">{content.address.street}<br />{content.address.city}</p>
+                {content.address.maps_url && (
+                  <a className="mt-3 inline-block text-lumini-rose underline" href={content.address.maps_url} target="_blank" rel="noopener noreferrer">
+                    Ver no mapa
+                  </a>
+                )}
+              </div>
+              {content.hours.length > 0 ? <ul>{content.hours.map((line) => <li key={line}>{line}</li>)}</ul> : <Pending what="horários de funcionamento" />}
             </div>
           ) : (
-            <Pending what="endereço confirmado e horários de funcionamento" />
+            <Pending what="endereço e horários de funcionamento (aba Site do painel)" />
           )}
         </Section>
 
@@ -182,8 +223,9 @@ export default async function HomePage() {
           </p>
           <LeadForm apiOrigin={apiOrigin} services={services.map(({ id, name }) => ({ id, name }))} />
         </Section>
+        {content.address && <LocalBusiness content={content} nonce={nonce} />}
       </main>
-      <SiteFooter />
+      <SiteFooter content={content} />
       <ChatWidget apiOrigin={apiOrigin} />
     </>
   );

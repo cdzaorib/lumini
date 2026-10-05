@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 
 import { site } from "@/content/site";
+import { getSiteContent } from "@/lib/public/site";
 
 import { LEGAL_APPROVED, LegalPage } from "../_site/legal";
 
@@ -12,8 +13,9 @@ export const metadata: Metadata = {
 
 export default async function PrivacyPage() {
   await headers();
+  const content = await getSiteContent();
   return (
-    <LegalPage title="Política de privacidade">
+    <LegalPage content={content} title="Política de privacidade">
       <p>
         Esta política explica como a {site.name} trata dados pessoais no site, no atendimento pelo WhatsApp e nos
         agendamentos, conforme a Lei Geral de Proteção de Dados (Lei 13.709/2018).
@@ -55,7 +57,7 @@ export default async function PrivacyPage() {
       <p>
         Você pode pedir confirmação, acesso, correção, anonimização, portabilidade ou exclusão dos seus dados, além de
         revogar autorizações a qualquer momento.{" "}
-        {site.legalContact ? `Fale com a clínica: ${site.legalContact}.` : "Canal de atendimento ao titular: pendente da clínica."}
+        {content.legal_contact ? `Fale com a clínica: ${content.legal_contact}.` : "Canal de atendimento ao titular: pendente da clínica."}
       </p>
       <h2>Cookies e estatísticas</h2>
       <p>

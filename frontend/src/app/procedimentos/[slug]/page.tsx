@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { site } from "@/content/site";
 import { readApiOrigin } from "@/lib/api-origin";
+import { getSiteContent } from "@/lib/public/site";
 import { getCatalog, priceText } from "@/lib/public/catalog";
 
 import { LeadForm } from "../../_site/lead-form";
@@ -80,7 +81,7 @@ export default async function ServicePage({ params }: Props) {
           </div>
         </section>
       </main>
-      <SiteFooter />
+      <SiteFooter content={await getSiteContent()} />
     </>
   );
 }

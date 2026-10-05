@@ -48,3 +48,29 @@ def safe_answer(answer: str, facts: str) -> bool:
         return False
     known = set(re.findall(r"\d+(?:[.,]\d+)?", facts))
     return all(number in known for number in re.findall(r"\d+(?:[.,]\d+)?", answer))
+
+
+# Advertising rules for clinic-written site text (plan §9/§10, Cofen 554/2017): no promised or
+# guaranteed results, no "before and after". Narrower than the model list: FAQ may mention care.
+_PUBLICITY = (
+    "garant",
+    "100%",
+    "cura ",
+    "curar",
+    "definitiv",
+    "permanente",
+    "milagr",
+    "imediat",
+    "sem risco",
+    "sem dor",
+    "infalivel",
+    "antes e depois",
+    "resultado certo",
+    "o melhor do",
+)
+
+
+def publicity_problem(text: str) -> str | None:
+    """The offending expression, or None when the text can be published."""
+    plain = f" {_plain(text)} "
+    return next((term.strip() for term in _PUBLICITY if term in plain), None)

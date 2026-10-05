@@ -1,11 +1,13 @@
 import type { ReactNode } from "react";
 
+import type { SiteContent } from "@/lib/public/site";
+
 import { SiteFooter, SiteHeader, container } from "./chrome";
 
 // Legal pages are drafts until a lawyer reviews them and the clinic approves (launch gate).
 export const LEGAL_APPROVED = false;
 
-export function LegalPage({ title, children }: { title: string; children: ReactNode }) {
+export function LegalPage({ title, content, children }: { title: string; content: SiteContent; children: ReactNode }) {
   return (
     <>
       <SiteHeader />
@@ -20,7 +22,7 @@ export function LegalPage({ title, children }: { title: string; children: ReactN
           {children}
         </div>
       </main>
-      <SiteFooter />
+      <SiteFooter content={content} />
     </>
   );
 }

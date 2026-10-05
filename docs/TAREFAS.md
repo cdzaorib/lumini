@@ -19,6 +19,7 @@ Atualizar após cada tarefa concluída/bloqueada e apontar detalhes em arquivos 
 | T08d | Autoatendimento por link seguro (cancelar/reagendar) | Concluída (real local) | `VALIDACAO-005.md`: 211 unitários + 140 integrações (20 rodadas estáveis); E2E cliente 18/18 e painel 26/26; ADR-016; corrigido deadlock intermitente da T08a |
 | T09 | WhatsApp (Evolution), modo humano e avisos | Concluída (real local; Evolution simulada — PoC real pendente) | `VALIDACAO-006.md`: 238 unitários + 161 integrações (10 rodadas); E2E integrações 12/12, painel 26/26, cliente 18/18; ADR-017; `RUNBOOK-WHATSAPP.md` |
 | T10 | IA, experiência pública e piloto | Concluída (real local; provedores simulados; lançamento pendente) | `VALIDACAO-007.md`: 285 unitários + 180 integrações; E2E site 17/17, chat 16/16 + regressões; backup/restauração ensaiados; `LANCAMENTO.md` com o estado de cada gate; ADR-018 |
+| T11 | Itens restantes do plano só com código (conteúdo do site no painel, métricas, comparecimento, alerta de sobreposição, E2E versionado, revisões) | Em andamento | Pedido do usuário: “pode continuar até o final”; deploy continua exigindo autorização específica |
 
 ## 2026-10-01 — T01
 
@@ -137,3 +138,9 @@ Evidência: 7 integrações novas; E2E chat 16/16 e regressão site 17/17, paine
 ## 2026-10-05 — T10e piloto: backup e checklist (Claude)
 
 Scripts `infrastructure/backup/backup.sh` e `restore.sh` (checksum, permissões restritas, recusa de destino não vazio ou igual à origem) e ensaio completo local (`VALIDACAO-007.md`); `RUNBOOK-BACKUP.md`; `LANCAMENTO.md` com cada critério do plano e seu estado real. Encerra o pedido do usuário de seguir até a etapa 10: tudo o que dependia só de código está construído e testado localmente; o restante depende da clínica, de credenciais ou de autorização de publicação.
+
+## 2026-10-05 — T11a conteúdo do site pelo painel (Claude)
+
+Usuário pediu para continuar até o final. Sem autorização de deploy, seguem os itens do plano integral que dependem só de código. Implementado: migração `0006_site_settings` (linha única versionada; auditoria `site`), `lumini/site/` (endereço, horários, WhatsApp, Instagram, diferenciais, perguntas frequentes, depoimentos só com autorização registrada, contato de privacidade, instruções do sinal) com regra de publicidade (sem promessa de resultado/antes e depois), API pública sem instruções do sinal nem registros de autorização; bot envia as instruções reais do sinal quando preenchidas. Frontend: aba “Site” no painel; landing, rodapé e páginas legais leem o conteúdo da API (cache 60 s), botão de WhatsApp, mapa, depoimentos e dados estruturados de negócio local com nonce; `frontend/src/content/site.ts` ficou só com identidade e portões.
+
+Evidência: 12 unitários + 4 integrações novos; E2E conteúdo 12/12, site 17/17, painel 26/26.

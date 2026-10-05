@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 
 import { site } from "@/content/site";
 import { readApiOrigin } from "@/lib/api-origin";
+import { getSiteContent } from "@/lib/public/site";
 import { getCatalog } from "@/lib/public/catalog";
 
 import { Chat } from "../_site/chat";
@@ -40,7 +41,7 @@ export default async function AttendancePage() {
           </div>
         </section>
       </main>
-      <SiteFooter />
+      <SiteFooter content={await getSiteContent()} />
     </>
   );
 }

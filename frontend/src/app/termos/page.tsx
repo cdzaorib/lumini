@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 
 import { site } from "@/content/site";
+import { getSiteContent } from "@/lib/public/site";
 
 import { LEGAL_APPROVED, LegalPage } from "../_site/legal";
 
@@ -12,8 +13,9 @@ export const metadata: Metadata = {
 
 export default async function TermsPage() {
   await headers();
+  const content = await getSiteContent();
   return (
-    <LegalPage title="Termos e políticas de agendamento">
+    <LegalPage content={content} title="Termos e políticas de agendamento">
       <h2>Informações do site</h2>
       <p>
         O conteúdo sobre procedimentos é informativo, aprovado pelas profissionais responsáveis, e não substitui uma

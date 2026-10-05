@@ -117,7 +117,7 @@ class CatalogAuditEvent(Base):
     __tablename__ = "catalog_audit_events"
     __table_args__ = (
         CheckConstraint(
-            "entity_type IN ('professional', 'service')", name="ck_catalog_audit_entity"
+            "entity_type IN ('professional', 'service', 'site')", name="ck_catalog_audit_entity"
         ),
         CheckConstraint("revision > 0", name="ck_catalog_audit_revision"),
     )
@@ -456,3 +456,19 @@ class AICall(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
+
+
+class SiteSettings(Base):
+    """Single row of clinic facts edited in the panel: address, hours, WhatsApp, FAQ... and the
+    deposit instructions sent by the bot. Versioned; changes audited with ids only."""
+
+    __tablename__ = "site_settings"
+    __table_args__ = (
+        CheckConstraint("id = 1", name="ck_site_settings_single_row"),
+        CheckConstraint("revision > 0", name="ck_site_settings_revision"),
+    )
+
+    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    content: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    revision: Mapped[int] = mapped_column(Integer, server_default="1")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
