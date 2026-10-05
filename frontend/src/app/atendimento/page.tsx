@@ -23,7 +23,7 @@ export default async function AttendancePage() {
     <>
       <SiteHeader />
       <main id="conteudo" tabIndex={-1} className={`${container} py-12 focus:outline-none`}>
-        <h1 className="font-display text-4xl sm:text-5xl">Atendimento</h1>
+        <h1 className="font-display text-4xl text-balance sm:text-5xl">Atendimento</h1>
         <p className="mt-4 max-w-2xl leading-relaxed text-lumini-muted">
           Conheça os procedimentos e reserve um horário. Para assuntos de saúde ou para falar com a equipe, use “Fale
           com a clínica” e a equipe chama você no WhatsApp.

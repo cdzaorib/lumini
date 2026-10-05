@@ -111,13 +111,13 @@ export function Chat({ apiOrigin, autoStart = true }: { apiOrigin: string | null
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      <div role="log" aria-live="polite" aria-label="Conversa" className="min-h-0 flex-1 overflow-y-auto border border-lumini-gold/40 bg-lumini-white/70 p-4">
+      <div role="log" aria-live="polite" aria-label="Conversa" className="min-h-0 flex-1 overflow-y-auto overscroll-contain border border-lumini-gold/40 bg-lumini-white/70 p-4">
         <ul className="flex flex-col gap-3">
           {lines.map((line, index) => (
             <li key={index} className={line.from === "you" ? "self-end" : "self-start"}>
               <span className="sr-only">{line.from === "you" ? "Você:" : "Lumini:"}</span>
               <p
-                className={`max-w-[34ch] whitespace-pre-line px-4 py-3 leading-relaxed sm:max-w-[48ch] ${
+                className={`max-w-[34ch] whitespace-pre-line break-words px-4 py-3 leading-relaxed sm:max-w-[48ch] ${
                   line.from === "you" ? "bg-lumini-rose text-lumini-white" : "border border-lumini-gold/40 bg-lumini-paper"
                 }`}
               >
@@ -153,10 +153,11 @@ export function Chat({ apiOrigin, autoStart = true }: { apiOrigin: string | null
           onChange={(event) => setDraft(event.target.value)}
           maxLength={1000}
           autoComplete="off"
-          placeholder="Escreva aqui ou toque numa opção"
+          name="message"
+          placeholder="Escreva aqui ou toque numa opção…"
           className={`min-h-12 flex-1 border border-lumini-muted/50 bg-lumini-white px-3 text-base ${focus}`}
         />
-        <button type="submit" disabled={busy || !draft.trim()} className={`min-h-12 bg-lumini-rose px-5 text-lumini-white disabled:opacity-50 ${focus}`}>
+        <button type="submit" disabled={busy} className={`min-h-12 bg-lumini-rose px-5 text-lumini-white hover:bg-lumini-ink disabled:opacity-50 ${focus}`}>
           Enviar
         </button>
       </form>

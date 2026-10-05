@@ -55,13 +55,13 @@ function ServiceCard({ service }: { service: PublicService }) {
   return (
     <li className="flex flex-col border border-lumini-gold/40 bg-lumini-white/70 p-6">
       <p className="text-xs uppercase tracking-[0.13em] text-lumini-muted">{service.category}</p>
-      <h3 className="mt-2 font-display text-2xl">{service.name}</h3>
+      <h3 className="mt-2 font-display text-2xl break-words">{service.name}</h3>
       <p className="mt-3 line-clamp-3 flex-1 leading-relaxed text-lumini-muted">{service.description}</p>
       <p className="mt-4 text-sm">
         {priceText(service)} · cerca de {service.duration_minutes} min
         {service.booking_mode === "evaluation" ? " · começa com avaliação" : ""}
       </p>
-      <Link className="mt-4 text-sm font-medium text-lumini-rose underline" href={`/procedimentos/${service.slug}`}>
+      <Link className="mt-4 text-sm font-medium text-lumini-rose underline hover:text-lumini-ink" href={`/procedimentos/${service.slug}`}>
         Saiba mais sobre {service.name}
       </Link>
     </li>
@@ -83,7 +83,7 @@ export default async function HomePage() {
         <section className={`${container} grid items-center gap-12 py-16 md:grid-cols-[1.3fr_1fr] md:py-24`}>
           <div>
             <p className="mb-6 text-xs uppercase tracking-[0.13em] text-lumini-muted">{site.region}</p>
-            <h1 className="max-w-[14ch] font-display text-5xl leading-[1.05] tracking-tight sm:text-6xl">
+            <h1 className="max-w-[14ch] font-display text-5xl leading-[1.05] tracking-tight text-balance sm:text-6xl">
               Tire suas dúvidas e agende sua avaliação
             </h1>
             <p className="mt-6 max-w-[42ch] text-lg leading-relaxed text-lumini-muted">
@@ -205,7 +205,7 @@ export default async function HomePage() {
               <div>
                 <p className="leading-relaxed">{content.address.street}<br />{content.address.city}</p>
                 {content.address.maps_url && (
-                  <a className="mt-3 inline-block text-lumini-rose underline" href={content.address.maps_url} target="_blank" rel="noopener noreferrer">
+                  <a className="mt-3 inline-block text-lumini-rose underline hover:text-lumini-ink" href={content.address.maps_url} target="_blank" rel="noopener noreferrer">
                     Ver no mapa
                   </a>
                 )}

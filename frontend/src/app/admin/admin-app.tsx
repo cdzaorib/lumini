@@ -47,7 +47,7 @@ export function AdminApp({ config, nonce }: { config: AdminConfig | null; nonce?
     <div className="mx-auto flex min-h-svh w-[min(100%-2rem,1100px)] flex-col">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-lumini-gold/40 py-6">
         <p className="flex items-baseline gap-3">
-          <span className="font-display text-3xl tracking-wide">lumini</span>
+          <span translate="no" className="font-display text-3xl tracking-wide">lumini</span>
           <span className="text-xs uppercase tracking-[0.18em] text-lumini-muted">Painel interno</span>
         </p>
       </header>

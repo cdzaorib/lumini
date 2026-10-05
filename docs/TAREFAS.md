@@ -19,7 +19,7 @@ Atualizar após cada tarefa concluída/bloqueada e apontar detalhes em arquivos 
 | T08d | Autoatendimento por link seguro (cancelar/reagendar) | Concluída (real local) | `VALIDACAO-005.md`: 211 unitários + 140 integrações (20 rodadas estáveis); E2E cliente 18/18 e painel 26/26; ADR-016; corrigido deadlock intermitente da T08a |
 | T09 | WhatsApp (Evolution), modo humano e avisos | Concluída (real local; Evolution simulada — PoC real pendente) | `VALIDACAO-006.md`: 238 unitários + 161 integrações (10 rodadas); E2E integrações 12/12, painel 26/26, cliente 18/18; ADR-017; `RUNBOOK-WHATSAPP.md` |
 | T10 | IA, experiência pública e piloto | Concluída (real local; provedores simulados; lançamento pendente) | `VALIDACAO-007.md`: 285 unitários + 180 integrações; E2E site 17/17, chat 16/16 + regressões; backup/restauração ensaiados; `LANCAMENTO.md` com o estado de cada gate; ADR-018 |
-| T11 | Itens restantes do plano só com código (conteúdo do site no painel, métricas, comparecimento, alerta de sobreposição, E2E versionado, revisões) | Em andamento | Pedido do usuário: “pode continuar até o final”; deploy continua exigindo autorização específica |
+| T11 | Itens restantes do plano só com código (conteúdo do site no painel, métricas, comparecimento, alerta de sobreposição, E2E versionado, revisões) | Concluída (real local) | `VALIDACAO-008.md`: 299 unitários + 189 integrações; `make e2e` 7/7 (111 etapas); `SEGURANCA.md`; deploy segue exigindo autorização específica |
 
 ## 2026-10-01 — T01
 
@@ -160,3 +160,7 @@ Migração `0008_calendar_overlap`. A reconciliação (a cada 15 min) marca rese
 Os roteiros que viviam no scratchpad agora estão em `e2e/`: `server.py` (API real sobre banco `lumini_e2e_test` recriado e migrado a cada cenário; recusa banco não local), 7 cenários parametrizados, `run.mjs` (sobe API e `next dev`, roda tudo, derruba só o que criou, código de saída 1 em falha), `package.json`/lockfile com `playwright-core` 1.63.0 fixo, `README.md` e `make e2e`. Capturas em `e2e/.output/` (fora do Git).
 
 Evidência: `make e2e` com os 7 cenários aprovados — painel 26/26, autoatendimento 18/18, integrações 12/12, site 17/17, chat 16/16, resumo 10/10, conteúdo 12/12 (111 etapas) — e portas liberadas ao final.
+
+## 2026-10-05 — T11e revisão de interface e segurança (Claude)
+
+Revisão pelas Web Interface Guidelines nas telas da cliente (site, chat, reserva) com 13 ajustes aplicados (lista em `VALIDACAO-008.md`). Segurança: `docs/SEGURANCA.md` (superfície pública e controles) e `backend/tests/test_route_guards.py` (toda rota administrativa recusa anônimo com 401; rotas públicas = lista revisada). `make e2e` 7/7 depois das mudanças. Encerra a etapa 11: o que resta depende de conteúdo da clínica, contas/credenciais e autorização de publicação.

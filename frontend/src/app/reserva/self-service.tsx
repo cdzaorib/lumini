@@ -119,7 +119,7 @@ export function SelfService({ apiOrigin, nonce }: { apiOrigin: string | null; no
   return (
     <div className="mx-auto flex min-h-svh w-[min(100%-2rem,640px)] flex-col">
       <header className="flex items-baseline gap-3 border-b border-lumini-gold/40 py-6">
-        <span className="font-display text-3xl tracking-wide">lumini</span>
+        <span translate="no" className="font-display text-3xl tracking-wide">lumini</span>
         <span className="text-xs uppercase tracking-[0.18em] text-lumini-muted">Estética e Saúde</span>
       </header>
       <div
@@ -176,7 +176,7 @@ function Booking({
     <article aria-labelledby="sua-reserva" className="flex flex-col gap-6">
       <div>
         <p className="text-xs uppercase tracking-[0.13em] text-lumini-muted">Sua reserva · código {booking.code}</p>
-        <h1 id="sua-reserva" ref={heading} tabIndex={-1} className={`mt-2 font-display text-3xl leading-tight ${focus}`}>
+        <h1 id="sua-reserva" ref={heading} tabIndex={-1} className={`mt-2 font-display text-3xl leading-tight text-balance break-words ${focus}`}>
           {booking.service}
         </h1>
         <p className="mt-3 text-lg">
@@ -293,6 +293,8 @@ function Reschedule({
           <input
             id={`${id}-day`}
             type="date"
+            name="day"
+            autoComplete="off"
             required
             min={clinicDay()}
             value={day}

@@ -1,6 +1,6 @@
 # Cenários de navegador (E2E)
 
-Roteiros no Chrome contra o backend real e o `next dev`, com **dados sintéticos** e identidade, Google Agenda e WhatsApp simulados. Cada cenário recebe um banco novo (`lumini_e2e_test`, recriado e migrado por `server.py`, que recusa servidores não locais).
+Roteiros no Chrome contra o backend real e o `next dev`, com **dados sintéticos** e identidade, Google Agenda e WhatsApp simulados. Cada cenário recebe um banco novo (`lumini_e2e_test`, recriado e migrado por `server.py`, que recusa servidores não locais); o banco fica até a próxima execução e pode ser apagado à vontade.
 
 ```bash
 cd e2e && npm ci

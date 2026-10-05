@@ -26,7 +26,7 @@ export function ChatWidget({ apiOrigin }: { apiOrigin: string | null }) {
       <dialog
         ref={dialog}
         aria-labelledby="chat-titulo"
-        className="m-auto h-[min(640px,92svh)] w-[min(100%-1rem,440px)] bg-lumini-paper p-4 text-lumini-ink backdrop:bg-lumini-ink/40"
+        className="m-auto h-[min(640px,92svh)] w-[min(100%-1rem,440px)] overscroll-contain bg-lumini-paper p-4 text-lumini-ink backdrop:bg-lumini-ink/40"
       >
         <div className="flex h-full flex-col gap-3">
           <div className="flex items-center justify-between">

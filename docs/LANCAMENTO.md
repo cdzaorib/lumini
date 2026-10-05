@@ -1,6 +1,6 @@
 # Checklist de lançamento (plano §15 e gates do `PLANO.md`)
 
-Estado em 2026-10-05, ao fim da T10. Legenda: **Pronto (local)** = implementado e testado localmente com dados sintéticos; **Preparado** = construído, sem validação com o serviço real; **Pendente** = depende da clínica, de credenciais ou de autorização. Nenhum item “Pendente” pode ser marcado sem evidência.
+Estado em 2026-10-05, ao fim da T11. Legenda: **Pronto (local)** = implementado e testado localmente com dados sintéticos; **Preparado** = construído, sem validação com o serviço real; **Pendente** = depende da clínica, de credenciais ou de autorização. Nenhum item “Pendente” pode ser marcado sem evidência.
 
 | Critério | Estado | O que falta / evidência |
 |---|---|---|
@@ -16,17 +16,19 @@ Estado em 2026-10-05, ao fim da T10. Legenda: **Pronto (local)** = implementado 
 | Modo humano confiável | Preparado | Distinção por id do envio + `#bot`/`#pausa`; PoC real obrigatória antes do número oficial |
 | Processo de reconexão documentado | Pronto (documento) | `RUNBOOK-WHATSAPP.md`; ensaio real pendente |
 | Backups funcionando | Pronto (local) / Pendente | Scripts e ensaio (`VALIDACAO-007`); falta backup automático do provedor e armazenamento criptografado em produção |
-| Testes de agendamento, cancelamento e reagendamento | Pronto (local) | Integrações e E2E (`VALIDACAO-003/005/006`); aprovação da clínica no piloto pendente |
+| Testes de agendamento, cancelamento e reagendamento | Pronto (local) | Integrações e `make e2e` versionado (7 cenários); aprovação da clínica no piloto pendente |
 | Concorrência e idempotência | Pronto (local) | Restrição de exclusão, repetição em deadlock, 20 rodadas (`VALIDACAO-005`) |
 | Simulação de expiração e de queda do WhatsApp | Pronto (local) | Testes de expiração, reenvio após queda, fila de avisos |
-| Mobile e acessibilidade | Pronto (local) / Pendente | 390 px, teclado, foco, rótulos e CSP nos E2E; falta revisão com leitor de tela e auditoria completa |
+| Mobile e acessibilidade | Pronto (local) / Pendente | 390 px, teclado, foco, rótulos e CSP em `make e2e`; revisão pelas Web Interface Guidelines aplicada (`VALIDACAO-008`); falta teste com leitor de tela |
 | Desempenho | Pendente | Medir no ambiente de produção (Core Web Vitals) |
 | Login Google real no painel | Pendente | Client ID OAuth da clínica |
 | IA (DeepSeek/Jev) | Preparado, desligado | Ligar só após a bancada sintética com o provedor escolhido aprovar minimização (ADR-018); Jev sem adaptador até a API ser verificada |
-| Textos do bot e dados do sinal (Pix) | Pendente | Aprovar `backend/src/lumini/whatsapp/texts.py`; instruções reais do sinal |
-| Decisões de produto abertas | Pendente | Antecedência mínima de 3 h; sinal zero com confirmação humana; lembretes em modo humano; alerta de compromisso de terceiros sobre reserva confirmada |
-| Conteúdo da landing | Pendente | Endereço, horários, WhatsApp, diferenciais, perguntas frequentes, fotos e depoimentos autorizados (`frontend/src/content/site.ts`) |
+| Textos do bot e dados do sinal (Pix) | Pendente | Aprovar `backend/src/lumini/whatsapp/texts.py`; instruções do sinal já podem ser preenchidas na aba Site |
+| Decisões de produto abertas | Pendente | Antecedência mínima de 3 h; sinal zero com confirmação humana; lembretes em modo humano; conduta além do aviso quando há compromisso de terceiros sobre reserva (hoje só avisa no painel) |
+| Conteúdo da landing | Pendente (ferramenta pronta) | A clínica preenche na aba **Site** do painel: endereço, horários, WhatsApp, diferenciais, perguntas frequentes, depoimentos autorizados e instruções do sinal; fotos autorizadas ainda dependem de código |
 | Domínio, HTTPS e deploy (Vercel/Railway) | Pendente | Autorização específica do usuário; variáveis no gerenciador de segredos |
 | CI remoto | Preparado | Workflow com testes e gitleaks; sem remoto Git |
+| Métricas e comparecimento | Pronto (local) | Aba Resumo, marcação de comparecimento/falta, histórico de cada reserva (`VALIDACAO-008`) |
+| Segurança | Pronto (local) / Pendente | `SEGURANCA.md`, teste de rotas; revisão independente sobre o ambiente publicado pendente |
 | Piloto interno | Pendente | Após integrações reais: equipe usa o fluxo completo com clientes de teste |
 | Aprovação final e substituição do Base44 | Pendente | `LUMINI_SITE_PUBLIC=true` e `LUMINI_SITE_STAGE=production` só após todos os itens acima |

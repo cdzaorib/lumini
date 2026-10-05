@@ -19,6 +19,9 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  /* No double-tap zoom delay on controls; a soft brand highlight instead of the default gray. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: color-mix(in srgb, var(--color-lumini-rose) 18%, transparent);
 }
 
 body { margin: 0; }

@@ -14,7 +14,7 @@ export function SiteHeader() {
     <header className="border-b border-lumini-gold/40">
       <div className={`${container} flex flex-wrap items-center justify-between gap-4 py-5`}>
         <Link href="/" className={`flex flex-col items-start ${focus}`}>
-          <span className="font-display text-4xl leading-none tracking-wide">lumini</span>
+          <span translate="no" className="font-display text-4xl leading-none tracking-wide">lumini</span>
           <span className="mt-1 text-[0.62rem] uppercase tracking-[0.19em]">Estética e Saúde</span>
         </Link>
         <nav aria-label="Seções" className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
@@ -38,19 +38,19 @@ export function SiteFooter({ content }: { content: SiteContent }) {
           <span>{site.region}</span>
           {content.address && <span>{content.address.street} · {content.address.city}</span>}
           {content.whatsapp && (
-            <a className={`underline ${focus}`} href={whatsappLink(content.whatsapp)} target="_blank" rel="noopener noreferrer">
+            <a className={`underline hover:text-lumini-rose ${focus}`} href={whatsappLink(content.whatsapp)} target="_blank" rel="noopener noreferrer">
               WhatsApp da clínica
             </a>
           )}
           {content.instagram && (
-            <a className={`underline ${focus}`} href={`https://www.instagram.com/${content.instagram}/`} target="_blank" rel="noopener noreferrer">
+            <a className={`underline hover:text-lumini-rose ${focus}`} href={`https://www.instagram.com/${content.instagram}/`} target="_blank" rel="noopener noreferrer">
               Instagram @{content.instagram}
             </a>
           )}
         </div>
         <nav aria-label="Informações legais" className="flex flex-wrap gap-x-5 gap-y-2">
-          <Link className={`underline ${focus}`} href="/privacidade">Privacidade</Link>
-          <Link className={`underline ${focus}`} href="/termos">Termos e políticas</Link>
+          <Link className={`underline hover:text-lumini-rose ${focus}`} href="/privacidade">Privacidade</Link>
+          <Link className={`underline hover:text-lumini-rose ${focus}`} href="/termos">Termos e políticas</Link>
         </nav>
       </div>
       <p className={`${container} pb-8 text-xs leading-relaxed`}>
@@ -75,7 +75,7 @@ export function Section({ id, title, eyebrow, children }: { id: string; title: s
   return (
     <section id={id} aria-labelledby={`${id}-titulo`} className={`${container} scroll-mt-8 pt-20`}>
       {eyebrow && <p className="mb-3 text-xs uppercase tracking-[0.13em] text-lumini-muted">{eyebrow}</p>}
-      <h2 id={`${id}-titulo`} className="font-display text-3xl leading-tight sm:text-4xl">
+      <h2 id={`${id}-titulo`} className="font-display text-3xl leading-tight text-balance sm:text-4xl">
         {title}
       </h2>
       <div className="mt-8">{children}</div>

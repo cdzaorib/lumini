@@ -6,7 +6,7 @@ type Option = { id: string; name: string };
 type State = { kind: "idle" | "sending" | "sent" } | { kind: "error"; text: string };
 
 const focus = "focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-lumini-rose";
-const input = `mt-1 block w-full border border-lumini-muted/50 bg-lumini-white px-3 py-3 text-base ${focus}`;
+const input = `mt-1 block w-full border border-lumini-muted/50 bg-lumini-white px-3 py-3 text-base text-lumini-ink ${focus}`;
 
 export function LeadForm({ apiOrigin, services, preselected }: { apiOrigin: string | null; services: Option[]; preselected?: string }) {
   const id = useId();
@@ -72,7 +72,7 @@ export function LeadForm({ apiOrigin, services, preselected }: { apiOrigin: stri
       </div>
       <div>
         <label htmlFor={`${id}-phone`} className="block text-sm font-medium">WhatsApp com DDD</label>
-        <input id={`${id}-phone`} name="phone" required inputMode="tel" autoComplete="tel" placeholder="(21) 9XXXX-XXXX" maxLength={30} className={input} />
+        <input id={`${id}-phone`} name="phone" required inputMode="tel" autoComplete="tel" placeholder="Ex.: (21) 98765-4321…" maxLength={30} className={input} />
       </div>
       <div>
         <label htmlFor={`${id}-service`} className="block text-sm font-medium">Interesse (opcional)</label>

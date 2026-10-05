@@ -45,7 +45,7 @@ export default async function ServicePage({ params }: Props) {
       <SiteHeader />
       <main id="conteudo" tabIndex={-1} className={`${container} py-14 focus:outline-none`}>
         <p className="text-xs uppercase tracking-[0.13em] text-lumini-muted">{service.category}</p>
-        <h1 className="mt-3 max-w-[20ch] font-display text-5xl leading-tight">{service.name}</h1>
+        <h1 className="mt-3 max-w-[20ch] font-display text-5xl leading-tight text-balance break-words">{service.name}</h1>
         <p className="mt-6 max-w-3xl text-lg leading-relaxed">{service.description}</p>
         <dl className="mt-8 grid max-w-3xl gap-4 sm:grid-cols-3">
           <div><dt className="text-sm text-lumini-muted">Duração</dt><dd>cerca de {service.duration_minutes} minutos</dd></div>
