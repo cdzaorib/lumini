@@ -1,6 +1,6 @@
 UV ?= $(if $(wildcard .tools/bin/uv),$(abspath .tools/bin/uv),uv)
 
-.PHONY: install backend-check backend-integration frontend-check secrets-check check api web
+.PHONY: install backend-check backend-integration frontend-check secrets-check check api web e2e
 
 install:
 	$(UV) sync --project backend --frozen
@@ -34,3 +34,7 @@ api:
 
 web:
 	cd frontend && npm run dev
+
+# Browser scenarios with synthetic data; needs LUMINI_E2E_* local test services, Chrome, Node 22.
+e2e:
+	cd e2e && npm ci && node run.mjs

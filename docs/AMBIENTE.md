@@ -61,6 +61,8 @@ LUMINI_DATABASE_URL=postgresql://lumini_test@127.0.0.1:55432/lumini_foundation_t
 
 Para parar: `pg_ctl -D $D/pgdata -m fast -w stop` e `redis-cli -h 127.0.0.1 -p 56379 shutdown`. Ao usar `pkill -f`, não inclua no padrão um texto que também apareça no próprio comando do shell (ele se mata).
 
+Cenários de navegador versionados: `e2e/README.md` (`make e2e` com `LUMINI_E2E_ADMIN_DATABASE_URL=postgresql://lumini_test@127.0.0.1:55432/postgres` e `LUMINI_E2E_REDIS_URL=redis://127.0.0.1:56379/1`, Chrome em `/usr/bin/google-chrome`, Node 22 no PATH).
+
 Evolution, Google Calendar, login Google e provedores de IA ainda precisam de configuração de teste própria da Lumini. Não copiar credenciais de projetos existentes. Configurar segredos pelo ambiente do processo/secret manager, nunca pelo chat. Nenhum acesso a Railway/Vercel foi solicitado neste marco.
 
 ## Referências de instalação verificadas

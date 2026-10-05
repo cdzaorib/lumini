@@ -154,3 +154,9 @@ Evidência: 4 integrações novas (188 no total, 2 rodadas); E2E resumo 10/10, p
 ## 2026-10-05 — T11c aviso de sobreposição no Google (Claude)
 
 Migração `0008_calendar_overlap`. A reconciliação (a cada 15 min) marca reservas aguardando sinal ou confirmadas que têm outro compromisso no Google no mesmo horário, registra no histórico, desmarca quando o compromisso sai e não altera a reserva (ADR-015 atualizada). Painel mostra o aviso no cartão da reserva. Evidência: integração nova (reconciliação 9/9); sem E2E de navegador (a reconciliação roda no worker, não no cenário E2E).
+
+## 2026-10-05 — T11d cenários de navegador versionados (Claude)
+
+Os roteiros que viviam no scratchpad agora estão em `e2e/`: `server.py` (API real sobre banco `lumini_e2e_test` recriado e migrado a cada cenário; recusa banco não local), 7 cenários parametrizados, `run.mjs` (sobe API e `next dev`, roda tudo, derruba só o que criou, código de saída 1 em falha), `package.json`/lockfile com `playwright-core` 1.63.0 fixo, `README.md` e `make e2e`. Capturas em `e2e/.output/` (fora do Git).
+
+Evidência: `make e2e` com os 7 cenários aprovados — painel 26/26, autoatendimento 18/18, integrações 12/12, site 17/17, chat 16/16, resumo 10/10, conteúdo 12/12 (111 etapas) — e portas liberadas ao final.

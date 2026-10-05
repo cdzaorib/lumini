@@ -1,0 +1,12 @@
+{
+  "name": "lumini-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Browser scenarios with synthetic data only (see README.md).",
+  "scripts": {
+    "e2e": "node run.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.63.0"
+  }
+}
