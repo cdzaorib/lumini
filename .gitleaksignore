@@ -1,0 +1,5 @@
+# Reviewed false positives only. Each entry pins commit:file:rule:line; nothing else is relaxed.
+# 2026-10-05: synthetic idempotency key "synthetic-idempotent-1" in a T08a test (not a credential).
+6159573f046af1cd8c81785cf8850dbfbebf149e:backend/tests/integration/test_booking_flow.py:generic-api-key:264
+6159573f046af1cd8c81785cf8850dbfbebf149e:backend/tests/integration/test_booking_flow.py:generic-api-key:265
+6159573f046af1cd8c81785cf8850dbfbebf149e:backend/tests/integration/test_booking_flow.py:generic-api-key:268

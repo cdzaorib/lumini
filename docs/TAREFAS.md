@@ -86,4 +86,6 @@ Implementado: `booking/router.py` (agenda GET/PUT, prévia de horários, lista `
 
 Defeito do núcleo T08a corrigido (ADR-014): leituras sem trava devolviam a cópia da reserva já carregada na sessão (`expire_on_commit=False`); um worker com sessão longa marcaria cancelamento como "sem mudança" e enviaria mensagens obsoletas. Regressão com controle negativo.
 
+Varredura de segredos do histórico estava vermelha desde a T08a por falso positivo (chave de idempotência sintética); registrado em `.gitleaksignore` por impressão digital exata, com controle positivo. Commits locais `c846947` (T08b) e seguinte (`.gitleaksignore` + docs).
+
 Evidência em `VALIDACAO-003.md`. Real local: API + PostgreSQL + painel no Chrome. Mock: identidade, calendário (em memória), script do Google. Não iniciado: adaptador Google, worker agendado, mensagens.

@@ -25,7 +25,7 @@ O usuário encerrou grill-me, aprovou o plano em `PLANO.md`, alterou backend par
 - **Mock/sintético:** identidade injetada no backend de teste; stub do script do Google no navegador; **calendário em memória** nos testes e no E2E.
 - **Apenas preparado:** CI com serviços sintéticos (sem execução remota). Rotas que consultam o Google respondem 503 `calendar_not_configured` enquanto não houver adaptador.
 - **Não iniciado:** login Google real, adaptador Google Calendar, worker agendado (reservas ficam em `pending_calendar`/`confirming` até ele existir), links de autoatendimento, Evolution, IA, envio de notificações, landing completa, deploy.
-- **Verificação de segredos:** gitleaks local verde; job de CI preparado (não executado remotamente).
+- **Verificação de segredos:** gitleaks local verde no histórico (8 commits) com 3 falsos positivos da T08a fixados em `.gitleaksignore` por impressão digital; job de CI preparado (não executado remotamente).
 - Nenhuma credencial de fornecedor foi carregada/copiada; nenhum fornecedor externo foi chamado com credencial.
 
 ## Atenção para o usuário (afeta configuração futura)

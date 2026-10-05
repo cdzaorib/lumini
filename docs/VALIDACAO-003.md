@@ -22,6 +22,10 @@ Defeito encontrado e corrigido pelo E2E: ao trocar para Histórico, o título mu
 
 `npm run lint`, `npm run typecheck` e `npm run build` verdes (`/admin` dinâmica, proxy incluído). Prévia religada em `127.0.0.1:3000` sem variáveis do painel: “Painel não configurado”, CSP com nonce, `no-store`.
 
+## Verificação de segredos
+
+Conteúdo staged da T08b: sem achados. Varredura do histórico (`make secrets-check`) acusou 3 achados `generic-api-key` no commit da T08a (`6159573`): todos a chave de idempotência sintética `synthetic-idempotent-1` de `test_booking_flow.py` — falsos positivos (o `make check` estava vermelho desde a T08a). Registrados por impressão digital exata (commit:arquivo:regra:linha) em `.gitleaksignore`, sem relaxar regras. Histórico de 8 commits limpo depois disso; controle positivo em repositório temporário com o mesmo `.gitleaksignore` e token falso no formato do GitHub: detectado (saída 1).
+
 ## Não validado
 
 Google Calendar real (adaptador é T08c), worker agendado (as reservas ficam em `pending_calendar`/`confirming` até o worker existir), login Google real, envio de mensagens, HTTPS/deploy, suíte E2E versionada.
