@@ -549,3 +549,132 @@ async def test_worker_answers_what_the_webhook_fast_path_missed(
             )
             await session.execute(delete(Conversation).where(Conversation.chat_id == chat))
         await engine.dispose()
+
+
+@dataclass
+class FakeAssistant:
+    classification: Any = None
+    answer_text: str | None = None
+    questions: list[str] = field(default_factory=list)
+
+    async def classify(self, session: Any, request: Any) -> Any:
+        self.questions.append(request.text)
+        return self.classification
+
+    async def answer(self, session: Any, request: Any) -> str | None:
+        self.questions.append(request.question)
+        return self.answer_text
+
+
+def classified(intent: str, service_id: Any, confidence: float) -> Any:
+    from lumini.ai.contracts import Classification
+
+    return Classification(
+        intent=intent,  # type: ignore[arg-type]
+        service_id=str(service_id) if service_id else None,
+        confidence=confidence,
+    )
+
+
+async def test_free_text_is_routed_by_the_model_only_with_enough_confidence(
+    channel: Channelled,
+) -> None:
+    service_id = channel.world.service_id
+    model = FakeAssistant(classified("service_info", service_id, 0.95))
+    channel.app.state.assistant = model
+    await channel.say("oi")
+    detail = await channel.say("queria saber da limpeza, me liga 21 99999-0000")
+    assert detail.startswith("Synthetic procedure")
+    assert all("99999" not in text for text in model.questions)  # redacted before leaving
+
+    await channel.say("0")
+    model.classification = classified("book", service_id, 0.7)  # medium: confirm first
+    clarify = await channel.say("quero marcar aquele procedimento")
+    assert clarify.startswith("Você está falando de Synthetic procedure?")
+    assert await channel.say("1") == texts.HEALTH_QUESTION
+
+    await channel.say("0")
+    model.classification = classified("book", service_id, 0.4)  # low: deterministic path
+    assert await channel.say("hmm talvez algo") == texts.NOT_UNDERSTOOD
+
+    model.classification = classified("health", None, 0.9)
+    assert await channel.say("uma dúvida sobre um problema") == texts.HEALTH_HANDOFF
+    assert (await channel.conversation()).mode == "human"
+
+
+async def test_questions_about_a_service_use_only_checked_wording(channel: Channelled) -> None:
+    from lumini.whatsapp.flow import NOT_IN_FACTS
+
+    model = FakeAssistant(answer_text="A orientação aprovada é vir sem maquiagem.")
+    channel.app.state.assistant = model
+    for text in ("oi", "1", "1"):
+        await channel.say(text)
+    reply = await channel.say("precisa ir sem maquiagem?")
+    assert reply.startswith("A orientação aprovada é vir sem maquiagem.") and "1. Agendar" in reply
+    model.answer_text = None  # blocked or not in the facts
+    assert (await channel.say("e quanto tempo dura o efeito?")).startswith(NOT_IN_FACTS)
+
+
+async def test_model_is_never_asked_during_numbered_booking_or_names(channel: Channelled) -> None:
+    class Forbidden:
+        async def classify(self, session: Any, request: Any) -> Any:
+            raise AssertionError("model consulted")
+
+        async def answer(self, session: Any, request: Any) -> Any:
+            raise AssertionError("model consulted")
+
+    channel.app.state.assistant = Forbidden()
+    for text in ("Olá", "2", "1", "1", "2", "2", "1", "Maria Sintética"):
+        assert await channel.say(text) != ""
+
+
+async def test_model_calls_are_accounted_without_text(channel: Channelled) -> None:
+    from lumini.ai.assistant import ModelAssistant
+    from lumini.ai.client import AIUnavailable, Completion
+    from lumini.models import AICall
+
+    @dataclass
+    class Scripted:
+        replies: list[Any]
+
+        async def complete(self, model: str, system: str, user: str, *, max_tokens: int) -> Any:
+            reply = self.replies.pop(0)
+            if isinstance(reply, Exception):
+                raise reply
+            return Completion(reply, 42, 300, 20)
+
+    client = Scripted(
+        [
+            {
+                "intent": "service_info",
+                "service_id": str(channel.world.service_id),
+                "confidence": 0.9,
+            },
+            AIUnavailable("synthetic"),
+        ]
+    )
+    channel.app.state.assistant = ModelAssistant(client, "synthetic-classifier", "synthetic-writer")  # type: ignore[arg-type]
+    await channel.say("oi")
+    assert (await channel.say("conta da limpeza")).startswith("Synthetic procedure")
+    await channel.say("0")
+    assert await channel.say("outra coisa qualquer") == texts.NOT_UNDERSTOOD
+    async with channel.sessions() as session, session.begin():
+        rows = (
+            await session.execute(
+                select(AICall.purpose, AICall.model, AICall.outcome, AICall.prompt_tokens)
+            )
+        ).all()
+    assert sorted(tuple(row) for row in rows) == [
+        ("classify", "synthetic-classifier", "ok", 300),
+        ("classify", "synthetic-classifier", "unavailable", None),
+    ]
+    assert set(AICall.__table__.columns.keys()) == {
+        "id",
+        "purpose",
+        "model",
+        "outcome",
+        "latency_ms",
+        "prompt_tokens",
+        "completion_tokens",
+        "created_at",
+    }

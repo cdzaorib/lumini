@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lumini.ai.assistant import Assistant
 from lumini.booking.calendar import CalendarAdapter
 from lumini.models import Conversation, WhatsAppMessage
 from lumini.settings import Settings
@@ -20,6 +21,7 @@ class Channel:
     sender: WhatsAppSender
     calendar: CalendarAdapter | None
     settings: Settings
+    assistant: Assistant | None = None
 
 
 async def handle(
@@ -53,7 +55,18 @@ async def handle(
         return "skipped_human"  # the team is talking; nothing automatic is said
 
     reply = await flow.step(
-        flow.Context(session, channel.calendar, conversation_id, phone, now), state, latest
+        flow.Context(
+            session,
+            channel.calendar,
+            conversation_id,
+            phone,
+            now,
+            assistant=channel.assistant,
+            high_confidence=channel.settings.ai_high_confidence,
+            medium_confidence=channel.settings.ai_medium_confidence,
+        ),
+        state,
+        latest,
     )
 
     async with session.begin():

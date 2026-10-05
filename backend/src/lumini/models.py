@@ -403,3 +403,56 @@ class IntegrationState(Base):
     detail: Mapped[str | None] = mapped_column(String(60))
     needs_attention: Mapped[bool] = mapped_column(Boolean, server_default="false")
     changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+# Leads and AI usage ---------------------------------------------------------------------
+
+LEAD_STATUSES = ("new", "contacted", "converted", "discarded")
+LEAD_PERIODS = ("morning", "afternoon", "any")
+
+
+class Lead(Base):
+    """A request to be contacted. Minimal fields; no free text (it could carry health data).
+    Leads not converted are deleted after their retention date (plan §12: three months)."""
+
+    __tablename__ = "leads"
+    __table_args__ = (
+        CheckConstraint(_in("status", LEAD_STATUSES), name="ck_leads_status"),
+        CheckConstraint(_in("preferred_period", LEAD_PERIODS), name="ck_leads_period"),
+        Index("ix_leads_status_created_at", "status", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(120))
+    phone_e164: Mapped[str] = mapped_column(String(16))
+    city: Mapped[str | None] = mapped_column(String(80))
+    service_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("services.id", ondelete="SET NULL")
+    )
+    preferred_period: Mapped[str] = mapped_column(String(10), server_default="any")
+    source: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(12), server_default="new")
+    contact_consent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    marketing_consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    retain_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AICall(Base):
+    """Cost and quality accounting per model call (ADR-009): never prompts, text or ids."""
+
+    __tablename__ = "ai_calls"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    purpose: Mapped[str] = mapped_column(String(20))
+    model: Mapped[str] = mapped_column(String(80))
+    outcome: Mapped[str] = mapped_column(String(20))
+    latency_ms: Mapped[int] = mapped_column(Integer)
+    prompt_tokens: Mapped[int | None] = mapped_column(Integer)
+    completion_tokens: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )

@@ -37,6 +37,16 @@ class Settings(BaseSettings):
     evolution_instance: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,64}$")
     evolution_api_key: SecretStr | None = None
     evolution_webhook_token: SecretStr | None = Field(default=None, min_length=32)
+    # Models (T10, ADR-018): off unless explicitly enabled after the minimization evaluation.
+    # OpenAI-compatible endpoint (e.g. DeepSeek); model names are configuration, never code.
+    ai_enabled: bool = False
+    ai_base_url: str | None = Field(default=None, pattern=r"^https://[^\s/?#@]+(/[^\s?#@]*)?$")
+    ai_api_key: SecretStr | None = None
+    ai_classifier_model: str | None = Field(default=None, max_length=80)
+    ai_writer_model: str | None = Field(default=None, max_length=80)
+    # Uncalibrated defaults: calibrate with the synthetic benchmark before enabling.
+    ai_high_confidence: float = Field(default=0.85, ge=0.5, le=1)
+    ai_medium_confidence: float = Field(default=0.6, ge=0.3, le=1)
 
     @field_validator("google_client_id")
     @classmethod

@@ -111,3 +111,7 @@ Sem instância de teste: construído e validado com webhooks simulados e remeten
 Defeitos/ajustes encontrados durante a validação: webhook recusado ainda resolvia a dependência de banco (autenticação passou a ser a primeira dependência); relógio do banco misturado ao da aplicação em carências (horários gravados explicitamente); equipe respondendo durante um envio do bot demorava até 2 min para pausar o bot (agora pausa ao fim do envio).
 
 Real local: webhook + PostgreSQL + worker + painel no Chrome. Mock: Evolution (remetente falso, payloads simulados), calendário em memória. Não validado: instância real (PoC listada no runbook), números com/sem nono dígito e `@lid` reais, entrega real de mensagens.
+
+## 2026-10-05 — T10a camada de IA (Claude)
+
+`lumini/ai/`: redação de identificadores, contratos estruturados, cliente OpenAI-compatível (DeepSeek), assistente com validação de saída e contabilidade sem texto, guardrails do redator, bancada sintética (`python -m lumini.ai.benchmark`, não executada: sem chave). Integrado ao fluxo do WhatsApp só para texto livre nos passos de navegação; **desligado por padrão** (ADR-018). Migração `0005_leads_ai` (contabilidade de IA e tabela de leads usada na T10b). Evidência: 267 unitários + 165 integrações (3 rodadas); testes de rota por confiança, redação antes de sair, modelo nunca consultado em nome/confirmação, respostas checadas e contabilidade sem texto. Mock: provedor (cliente roteirizado). Não iniciado: benchmark real, Jev.

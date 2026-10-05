@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from lumini.ai.assistant import build_assistant
 from lumini.auth import build_identity_verifier
 from lumini.booking.google_calendar import build_calendar
 from lumini.booking.public_router import router as self_service_router
@@ -71,6 +72,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.calendar = build_calendar(config)
     # None until the Evolution instance is configured: the webhook answers 404.
     app.state.whatsapp = build_sender(config)
+    # None unless enabled after the minimization evaluation (ADR-018).
+    app.state.assistant = build_assistant(config)
     app.add_exception_handler(RequestValidationError, sanitized_validation_error)
     for error_type in BOOKING_ERRORS:
         app.add_exception_handler(error_type, booking_error_handler)

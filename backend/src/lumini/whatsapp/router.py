@@ -65,7 +65,12 @@ async def _handle_later(
     sender = getattr(app.state, "whatsapp", None)
     if sender is None:
         return
-    channel = Channel(sender, getattr(app.state, "calendar", None), app.state.settings)
+    channel = Channel(
+        sender,
+        getattr(app.state, "calendar", None),
+        app.state.settings,
+        getattr(app.state, "assistant", None),
+    )
     for conversation_id in conversation_ids:
         try:
             async with sessions() as session:

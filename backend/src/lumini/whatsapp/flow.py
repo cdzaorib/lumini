@@ -19,6 +19,9 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lumini.ai.assistant import Assistant
+from lumini.ai.contracts import AnswerRequest, ClassifyRequest, ServiceFacts, ServiceRef
+from lumini.ai.redaction import redact
 from lumini.booking.calendar import (
     CalendarAdapter,
     CalendarNotConfigured,
@@ -37,6 +40,7 @@ from lumini.booking.service import (
 )
 from lumini.catalog.schemas import PublicService
 from lumini.catalog.service import list_public_services
+from lumini.models import Service
 from lumini.whatsapp import texts
 
 DAYS_AHEAD = 14
@@ -106,6 +110,9 @@ class Context:
     conversation_id: uuid.UUID
     phone: str | None
     now: datetime
+    assistant: Assistant | None = None
+    high_confidence: float = 0.85
+    medium_confidence: float = 0.6
     _catalog: list[PublicService] | None = field(default=None, repr=False)
 
     async def catalog(self) -> list[PublicService]:
@@ -141,16 +148,28 @@ def _bookable(item: PublicService) -> bool:
     return item.booking_mode == "direct" and bool(item.professionals)
 
 
+def local_route(text: str) -> str | None:
+    """Decisions taken before any model sees the text (ADR-007): opt-out, health, a person."""
+    plain = normalize(text)
+    if plain in _OPT_OUT:
+        return "opt_out"
+    if any(word in f" {plain} " for word in _HEALTH):
+        return "health"
+    if any(word in plain for word in _HUMAN):
+        return "human"
+    return None
+
+
 async def step(ctx: Context, state: dict[str, Any], text: str | None) -> Reply:
     if text is None or not text.strip():
         return Reply(texts.NON_TEXT, state)
     plain = normalize(text)
-    if plain in _OPT_OUT:
+    local = local_route(text)
+    if local == "opt_out":
         return Reply(texts.OPT_OUT, state, opt_out=True)
-    padded = f" {plain} "
-    if any(word in padded for word in _HEALTH):
+    if local == "health":
         return _handoff(texts.HEALTH_HANDOFF, "health_condition")
-    if any(word in plain for word in _HUMAN):
+    if local == "human":
         return _handoff()
     current = state.get("step")
     if plain in _GREETING or current is None:
@@ -159,6 +178,9 @@ async def step(ctx: Context, state: dict[str, Any], text: str | None) -> Reply:
     if handler is None:
         return Reply(texts.MENU, {"step": "menu"})
     reply = await handler(ctx, state, text)
+    if reply is None and ctx.assistant is not None and current in _ASSISTED:
+        # Free text where a number was expected: let the model suggest a route (ADR-018).
+        reply = await _assisted(ctx, state, text)
     if reply is not None:
         return reply
     misses = int(state.get("misses", 0)) + 1
@@ -222,6 +244,13 @@ async def _pick_service(ctx: Context, state: dict[str, Any], text: str) -> Reply
     item = await ctx.service(options[picked - 1])
     if item is None:
         return Reply(texts.MENU, {"step": "menu"})  # unpublished meanwhile
+    return _detail(item)
+
+
+_SERVICE_OPTIONS = texts.numbered(["Agendar", "Ver outros procedimentos", "Falar com a equipe"])
+
+
+def _detail(item: PublicService) -> Reply:
     lines = [item.name, "", item.description]
     if item.content.objectives:
         lines += ["", "Objetivos: " + "; ".join(item.content.objectives) + "."]
@@ -232,7 +261,7 @@ async def _pick_service(ctx: Context, state: dict[str, Any], text: str) -> Reply
     ]
     if item.booking_mode != "direct":
         lines += ["", "Este procedimento começa com uma avaliação, combinada com a equipe."]
-    lines += ["", texts.numbered(["Agendar", "Ver outros procedimentos", "Falar com a equipe"])]
+    lines += ["", _SERVICE_OPTIONS]
     return Reply("\n".join(lines), {"step": "service", "service_id": str(item.id)})
 
 
@@ -437,6 +466,102 @@ async def _confirm(ctx: Context, state: dict[str, Any], text: str) -> Reply | No
     return Reply(texts.HOLD_REQUESTED, {"step": "menu"})
 
 
+# Steps where free text may be interpreted by the model. Never name or confirmation.
+_ASSISTED = {"menu", "categories", "services", "service"}
+
+
+async def _assisted(ctx: Context, state: dict[str, Any], text: str) -> Reply | None:
+    assistant = ctx.assistant
+    if assistant is None:
+        return None
+    if state.get("step") == "service":
+        answered = await _answer(ctx, assistant, state, text)
+        if answered is not None:
+            return answered
+    catalog = await ctx.catalog()
+    if not catalog:
+        return None
+    result = await assistant.classify(
+        ctx.session,
+        ClassifyRequest(
+            text=redact(text),
+            step=str(state.get("step")),
+            services=[
+                ServiceRef(id=str(item.id), name=item.name, category=item.category)
+                for item in catalog
+            ],
+        ),
+    )
+    if result is None or result.confidence < ctx.medium_confidence:
+        return None
+    if result.intent == "health":
+        return _handoff(texts.HEALTH_HANDOFF, "health_condition")
+    if result.intent == "human":
+        return _handoff()
+    if result.intent == "browse":
+        return await _categories(ctx, "browse")
+    item = await ctx.service(result.service_id)
+    if item is None or result.intent not in ("service_info", "book"):
+        return None
+    if result.confidence < ctx.high_confidence:
+        return Reply(
+            f"Você está falando de {item.name}?\n"
+            + texts.numbered(["Sim", "Não, quero ver a lista"]),
+            {"step": "clarify", "service_id": str(item.id), "intent": result.intent},
+        )
+    if result.intent == "book" and _bookable(item):
+        return Reply(texts.HEALTH_QUESTION, {"step": "health", "service_id": str(item.id)})
+    return _detail(item)
+
+
+async def _clarify(ctx: Context, state: dict[str, Any], text: str) -> Reply | None:
+    picked = choice(text, 2)
+    if picked is None:
+        return None
+    if picked == 2:
+        return await _categories(ctx, "browse")
+    item = await ctx.service(state.get("service_id"))
+    if item is None:
+        return Reply(texts.MENU, {"step": "menu"})
+    if state.get("intent") == "book" and _bookable(item):
+        return Reply(texts.HEALTH_QUESTION, {"step": "health", "service_id": str(item.id)})
+    return _detail(item)
+
+
+NOT_IN_FACTS = (
+    "Essa informação eu não tenho aprovada por aqui. A profissional pode explicar melhor: "
+    "responda 3 para falar com a equipe.\n"
+)
+
+
+async def _answer(
+    ctx: Context, assistant: Assistant, state: dict[str, Any], question: str
+) -> Reply | None:
+    item = await ctx.service(state.get("service_id"))
+    if item is None:
+        return None
+    async with ctx.session.begin():
+        stored = await ctx.session.get(Service, item.id)
+    restrictions = list((stored.content if stored else {}).get("communication_restrictions", []))
+    facts = ServiceFacts(
+        name=item.name,
+        description=item.description,
+        objectives=item.content.objectives,
+        audience=item.content.audience,
+        preparation=item.content.preparation,
+        aftercare=item.content.aftercare,
+        human_guidance=item.content.human_guidance,
+        duration_minutes=item.duration_minutes,
+        price_text=texts.price_line(item.content.price_kind, item.price_brl),
+        restrictions=[str(entry) for entry in restrictions],
+    )
+    answer = await assistant.answer(
+        ctx.session, AnswerRequest(question=redact(question), facts=facts)
+    )
+    text = (answer + "\n\n") if answer else NOT_IN_FACTS
+    return Reply(text + _SERVICE_OPTIONS, state)
+
+
 _STEPS = {
     "menu": _menu,
     "categories": _pick_category,
@@ -448,4 +573,5 @@ _STEPS = {
     "times": _pick_time,
     "name": _name,
     "confirm": _confirm,
+    "clarify": _clarify,
 }

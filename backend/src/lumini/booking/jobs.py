@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from redis.asyncio import Redis
 from redis.exceptions import LockError
 
+from lumini.ai.assistant import build_assistant
 from lumini.booking.calendar import CalendarAdapter
 from lumini.booking.dispatch import TickReport, tick
 from lumini.booking.reconcile import ReconcileReport, reconcile_calendars
@@ -77,7 +78,7 @@ async def run_tick(
             )
             report = await tick(session, calendar=calendar, notifier=notifier, now=now)
             if sender is not None:
-                channel = Channel(sender, calendar, settings)
+                channel = Channel(sender, calendar, settings, build_assistant(settings))
                 await retry_failed_replies(session, sender, now=now)
                 for conversation_id in await pending_conversations(session, now=now):
                     await handle(session, channel, conversation_id, now=now)
