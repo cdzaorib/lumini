@@ -636,6 +636,21 @@ async def test_outbox_retries_calendar_outages_and_skips_stale_messages(world: W
     assert world.calendar.status(CAL, event_id(booking.id)) == "cancelled"
 
 
+async def test_a_long_lived_session_never_acts_on_an_old_copy(world: World) -> None:
+    """The worker may reuse one session while the panel changes the booking elsewhere."""
+    booking = await held(world, local(TUESDAY, 10))  # world.session now holds a "held" copy
+    async with AsyncSession(
+        bind=world.connection, expire_on_commit=False, join_transaction_mode="create_savepoint"
+    ) as panel:
+        await cancel_booking(
+            panel, booking.id, actor=STAFF, expected_version=booking.version, now=NOW
+        )
+    notifier = RecordingNotifier([])
+    await deliver_due(world.session, calendar=world.calendar, notifier=notifier, now=NOW + MINUTE)
+    assert notifier.sent == [("booking_cancelled", booking.id)]
+    assert world.calendar.status(CAL, event_id(booking.id)) == "cancelled"
+
+
 async def test_audit_and_outbox_never_hold_contact_data(world: World) -> None:
     booking = await confirmed(
         world, local(TUESDAY, 10), name="SYNTHETIC CONTACT NAME", phone="+5521987650000"

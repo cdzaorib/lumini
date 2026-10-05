@@ -3,7 +3,7 @@ import type { ServiceDraft } from "./types";
 function text(data: FormData, key: string): string { return String(data.get(key) ?? "").trim(); }
 function optional(data: FormData, key: string): string | null { return text(data, key) || null; }
 function lines(data: FormData, key: string): string[] { return text(data, key).split(/\r?\n/).map((line) => line.trim()).filter(Boolean); }
-function amount(data: FormData, key: string): string | null {
+export function amount(data: FormData, key: string): string | null {
   const value = optional(data, key);
   if (value === null) return null;
   // Do not convert money to binary float or silently treat a blank as zero.

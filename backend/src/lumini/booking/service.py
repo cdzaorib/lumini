@@ -63,11 +63,18 @@ CLIENT = Actor("client")
 
 
 class BookingError(Exception):
-    """Workflow refusal with a fixed message that is safe to show to staff."""
+    """Workflow refusal: fixed English message plus a stable code the UI translates."""
+
+    code = "conflict"
+
+    def __init__(self, message: str, code: str | None = None) -> None:
+        super().__init__(message)
+        if code is not None:
+            self.code = code
 
 
 class BookingNotFound(BookingError):
-    pass
+    code = "not_found"
 
 
 class BookingConflict(BookingError):
@@ -75,19 +82,25 @@ class BookingConflict(BookingError):
 
 
 class SlotUnavailable(BookingError):
-    pass
+    code = "slot_unavailable"
 
 
 class InvalidBookingRequest(BookingError):
     """Malformed client input (name, phone, idempotency key)."""
 
+    code = "invalid_request"
+
 
 class NotBookable(BookingError):
     """Service, professional or agenda is not eligible for online booking."""
 
+    code = "not_bookable"
+
 
 class RequiresHuman(BookingError):
     """Policy reserves this decision for the clinic (late changes, second reschedule, ...)."""
+
+    code = "requires_human"
 
 
 @dataclass(frozen=True)
@@ -155,7 +168,7 @@ def _transition(
 
 def _check_version(booking: Booking, expected_version: int) -> None:
     if booking.version != expected_version:
-        raise BookingConflict("The booking changed; reload before retrying")
+        raise BookingConflict("The booking changed; reload before retrying", "stale")
 
 
 async def _locked(session: AsyncSession, booking_id: uuid.UUID) -> Booking:
@@ -183,7 +196,7 @@ async def _slot_context(
         raise NotBookable("Service is not available for online booking")
     service, linked = found
     if service.booking_mode != "direct":
-        raise NotBookable("This service starts with an evaluation booking")
+        raise NotBookable("This service starts with an evaluation booking", "evaluation_required")
     if professional_id not in linked:
         raise NotBookable("Professional does not perform this service")
     schedule = await session.get(ProfessionalSchedule, professional_id)
@@ -194,7 +207,7 @@ async def _slot_context(
         )
     ]
     if schedule is None or not schedule.calendar_id or not rules:
-        raise NotBookable("Professional agenda is not configured")
+        raise NotBookable("Professional agenda is not configured", "agenda_not_configured")
     if service.duration_minutes is None or service.deposit_brl is None:
         raise NotBookable("Service is not available for online booking")  # defensive
     return _SlotContext(
@@ -221,7 +234,7 @@ def _check_start(
 ) -> None:
     """The start must be a grid slot inside working hours, past the minimum lead, within horizon."""
     if now < starts_at < now + policy.min_lead:
-        raise RequiresHuman("Times this close are arranged directly with the clinic")
+        raise RequiresHuman("Times this close are arranged directly with the clinic", "too_close")
     day = _local_day(starts_at)
     candidates = free_slots(
         windows=working_windows(rules, day, day, CLINIC_TZ),
@@ -313,7 +326,11 @@ def _same_request(booking: Booking, request: HoldRequest, starts_at: datetime) -
 
 
 async def _by_key(session: AsyncSession, key: str) -> Booking | None:
-    result = await session.scalars(select(Booking).where(Booking.idempotency_key == key))
+    result = await session.scalars(
+        select(Booking)
+        .where(Booking.idempotency_key == key)
+        .execution_options(populate_existing=True)
+    )
     return result.one_or_none()
 
 
@@ -351,7 +368,9 @@ async def create_hold(
         existing = await _by_key(session, request.idempotency_key)
         if existing is not None:
             if not _same_request(existing, request, starts_at):
-                raise BookingConflict("Idempotency key already used for another request")
+                raise BookingConflict(
+                    "Idempotency key already used for another request", "idempotency_conflict"
+                )
             return existing
         context = await _slot_context(session, request.service_id, request.professional_id, policy)
 
@@ -395,7 +414,9 @@ async def create_hold(
                 existing = await _by_key(session, request.idempotency_key)
             if existing is not None and _same_request(existing, request, starts_at):
                 return existing
-            raise BookingConflict("Idempotency key already used for another request") from None
+            raise BookingConflict(
+                "Idempotency key already used for another request", "idempotency_conflict"
+            ) from None
         raise
     return booking
 
@@ -452,6 +473,8 @@ async def sync_calendar(
                     ProfessionalSchedule.professional_id == Booking.professional_id,
                 )
                 .where(Booking.id == booking_id)
+                # A long-lived session may hold an older copy; sync must see the current state.
+                .execution_options(populate_existing=True)
             )
         ).one_or_none()
         if row is None:
@@ -561,7 +584,7 @@ async def confirm_deposit(
 ) -> Booking:
     """Authenticated human confirmation. Competes with expiry on the same locked row."""
     if actor.type != "staff" or not actor.subject:
-        raise BookingConflict("Only authenticated staff can confirm deposits")
+        raise BookingConflict("Only authenticated staff can confirm deposits", "forbidden")
     async with session.begin():
         booking = await _locked(session, booking_id)
         _check_version(booking, expected_version)
@@ -570,11 +593,17 @@ async def confirm_deposit(
             and booking.expires_at is not None
             and booking.expires_at <= now
         ):
-            raise RequiresHuman("The hold expired; the time may already be free for others")
+            raise RequiresHuman(
+                "The hold expired; the time may already be free for others", "hold_expired"
+            )
         if booking.status != "held":
-            raise BookingConflict("Only held bookings can receive a deposit confirmation")
+            raise BookingConflict(
+                "Only held bookings can receive a deposit confirmation", "invalid_state"
+            )
         if amount_brl.quantize(_CENTS) != booking.deposit_brl.quantize(_CENTS):
-            raise BookingConflict("Received amount differs from the expected deposit")
+            raise BookingConflict(
+                "Received amount differs from the expected deposit", "deposit_mismatch"
+            )
         booking.deposit_confirmed_at = now
         booking.deposit_confirmed_by = actor.subject
         _transition(session, booking, "confirming", action="deposit_confirmed", actor=actor)
@@ -627,14 +656,14 @@ async def cancel_booking(
         booking = await _locked(session, booking_id)
         _check_version(booking, expected_version)
         if booking.status not in ACTIVE_BOOKING_STATUSES:
-            raise BookingConflict("Booking is no longer active")
+            raise BookingConflict("Booking is no longer active", "invalid_state")
         if actor.type == "client":
             allowed = booking.status == "held" or (
                 booking.status == "confirmed"
                 and booking.starts_at - now > policy.self_service_cutoff
             )
             if not allowed:
-                raise RequiresHuman("This cancellation is handled by the clinic")
+                raise RequiresHuman("This cancellation is handled by the clinic", "within_24h")
         elif actor.type != "staff" or not actor.subject:
             raise BookingConflict("Not allowed")
         _transition(
@@ -652,12 +681,12 @@ async def cancel_booking(
 
 def _check_reschedule(booking: Booking, actor: Actor, now: datetime, policy: BookingPolicy) -> None:
     if booking.status != "confirmed":
-        raise BookingConflict("Only confirmed bookings can be rescheduled")
+        raise BookingConflict("Only confirmed bookings can be rescheduled", "invalid_state")
     if actor.type == "client":
         if booking.reschedule_count > 0:
-            raise RequiresHuman("A second reschedule is decided by the clinic")
+            raise RequiresHuman("A second reschedule is decided by the clinic", "second_reschedule")
         if booking.starts_at - now <= policy.self_service_cutoff:
-            raise RequiresHuman("Changes within 24 hours are handled by the clinic")
+            raise RequiresHuman("Changes within 24 hours are handled by the clinic", "within_24h")
     elif actor.type != "staff" or not actor.subject:
         raise BookingConflict("Not allowed")
 
@@ -676,7 +705,7 @@ async def reschedule_booking(
     """Move a paid booking keeping its deposit: new booking + cancelled original, atomically."""
     starts_at = new_starts_at.astimezone(UTC)
     async with session.begin():
-        original = await session.get(Booking, booking_id)
+        original = await session.get(Booking, booking_id, populate_existing=True)
         if original is None:
             raise BookingNotFound("Booking not found")
         key = f"reschedule:{original.id}:{expected_version}"
@@ -756,12 +785,12 @@ async def resolve_conflict(
 ) -> Booking:
     """Staff decide: release the time, or retry placing the calendar event (re-verified)."""
     if actor.type != "staff" or not actor.subject:
-        raise BookingConflict("Only authenticated staff can resolve conflicts")
+        raise BookingConflict("Only authenticated staff can resolve conflicts", "forbidden")
     async with session.begin():
         booking = await _locked(session, booking_id)
         _check_version(booking, expected_version)
         if booking.status != "conflict":
-            raise BookingConflict("Booking is not in conflict")
+            raise BookingConflict("Booking is not in conflict", "invalid_state")
         if resolution == "release":
             _transition(
                 session,

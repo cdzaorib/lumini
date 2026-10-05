@@ -47,4 +47,33 @@ export type Service = ServiceDraft & {
 };
 
 export type Catalog = { professionals: Professional[]; services: Service[] };
-export type Mutation = (path: string, method: "POST" | "PATCH", body: unknown, success: string) => Promise<boolean>;
+export type Mutation = (path: string, method: "POST" | "PATCH" | "PUT", body: unknown, success: string) => Promise<boolean>;
+// Authenticated GET whose failure is already reported to the user; null means "nothing to show".
+export type Query = <T>(path: string, decode: (value: unknown) => T) => Promise<T | null>;
+
+export const BOOKING_STATUSES = ["pending_calendar", "held", "confirming", "confirmed", "expired", "cancelled", "conflict"] as const;
+export type BookingStatus = (typeof BOOKING_STATUSES)[number];
+export type BookingScope = "upcoming" | "history";
+
+// Contact data is shown only inside the authenticated panel; never log or persist it.
+export type Booking = {
+  id: string;
+  code: string;
+  status: BookingStatus;
+  version: number;
+  starts_at: string;
+  ends_at: string;
+  expires_at: string | null;
+  service: { id: string; name: string };
+  professional: { id: string; name: string };
+  contact: { name: string; phone: string };
+  deposit_brl: string;
+  deposit_confirmed_at: string | null;
+  calendar_status: string;
+  reschedule_count: number;
+  rescheduled_from_id: string | null;
+  closed_reason: string | null;
+};
+
+export type ScheduleRule = { weekday: number; start: string; end: string };
+export type Schedule = { professional_id: string; calendar_id: string | null; revision: number; rules: ScheduleRule[] };

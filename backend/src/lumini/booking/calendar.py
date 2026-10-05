@@ -54,6 +54,10 @@ class CalendarRejected(Exception):
     """Permanent (calendar missing, no permission, invalid request): needs a human."""
 
 
+class CalendarNotConfigured(CalendarRejected):
+    """No adapter in this process (integration credentials not provided)."""
+
+
 class CalendarAdapter(Protocol):
     async def list_busy(
         self, calendar_id: str, start: datetime, end: datetime

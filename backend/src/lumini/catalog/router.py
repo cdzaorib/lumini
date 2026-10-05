@@ -1,13 +1,13 @@
 """Catalog HTTP boundary. Every /api/admin route authenticates before a database session opens."""
 
-from collections.abc import AsyncIterator, Awaitable, Callable
-from typing import Annotated, Literal, cast
+from collections.abc import Awaitable, Callable
+from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from lumini.auth import AdminPrincipal, require_admin
 from lumini.catalog import service as catalog
@@ -22,22 +22,7 @@ from lumini.catalog.schemas import (
     ServiceView,
     VersionRequest,
 )
-
-_NO_STORE = {"Cache-Control": "no-store"}
-
-
-def _no_store(response: Response) -> None:
-    response.headers.update(_NO_STORE)
-
-
-async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
-    resources = getattr(request.app.state, "resources", None)
-    sessions = cast(async_sessionmaker[AsyncSession] | None, getattr(resources, "sessions", None))
-    if sessions is None:
-        raise HTTPException(503, "Catalog unavailable", headers=_NO_STORE)
-    async with sessions() as session:
-        yield session
-
+from lumini.deps import NO_STORE, get_session, no_store
 
 Admin = Annotated[AdminPrincipal, Depends(require_admin)]
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -61,14 +46,14 @@ async def _transaction[T](session: AsyncSession, operation: Callable[[], Awaitab
         for error_type, status, message in _ERRORS:
             if isinstance(error, error_type):
                 detail = message if message is not None else str(error)
-                raise HTTPException(status, detail, headers=_NO_STORE) from None
+                raise HTTPException(status, detail, headers=NO_STORE) from None
         raise
 
 
 admin_router = APIRouter(
     prefix="/api/admin",
     tags=["admin"],
-    dependencies=[Depends(require_admin), Depends(_no_store)],
+    dependencies=[Depends(require_admin), Depends(no_store)],
 )
 public_router = APIRouter(prefix="/api/catalog", tags=["catalog"])
 
@@ -163,5 +148,5 @@ async def change_service_publication(
 
 @public_router.get("/services", response_model=list[PublicService])
 async def public_services(response: Response, session: Session) -> list[PublicService]:
-    response.headers.update(_NO_STORE)
+    response.headers.update(NO_STORE)
     return await _transaction(session, lambda: catalog.list_public_services(session))

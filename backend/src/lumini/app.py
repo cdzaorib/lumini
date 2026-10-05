@@ -12,6 +12,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from lumini.auth import build_identity_verifier
+from lumini.booking.router import BOOKING_ERRORS, booking_error_handler
+from lumini.booking.router import router as booking_router
 from lumini.catalog.router import admin_router, public_router
 from lumini.resources import DependencyStatus, Resources, check_dependency, open_resources
 from lumini.settings import Settings
@@ -61,17 +63,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Constructing the verifier performs no network work; unconfigured access fails closed.
     app.state.identity_verifier = build_identity_verifier(config)
     app.add_exception_handler(RequestValidationError, sanitized_validation_error)
+    for error_type in BOOKING_ERRORS:
+        app.add_exception_handler(error_type, booking_error_handler)
     if config.cors_origins:
         # Bearer tokens only, never cookies: credentials stay disabled.
         app.add_middleware(
             CORSMiddleware,
             allow_origins=config.cors_origins,
             allow_credentials=False,
-            allow_methods=["GET", "POST", "PATCH"],
+            allow_methods=["GET", "POST", "PATCH", "PUT"],
             allow_headers=["Authorization", "Content-Type"],
             max_age=600,
         )
     app.include_router(admin_router)
+    app.include_router(booking_router)
     app.include_router(public_router)
 
     @app.get("/health/live", response_model=Liveness, tags=["health"])

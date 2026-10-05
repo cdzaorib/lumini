@@ -1,16 +1,36 @@
 import type { RequestTicket } from "./session";
-import type { AdminIdentity, Professional, Service, ServiceContent } from "./types";
+import { BOOKING_STATUSES, type AdminIdentity, type Booking, type Professional, type Schedule, type Service, type ServiceContent } from "./types";
 
 export class AdminApiError extends Error {
   status: number;
-  constructor(status: number) {
-    super(adminErrorMessage(status));
+  code: string | null;
+  constructor(status: number, code: string | null = null) {
+    super(adminErrorMessage(status, code));
     this.name = "AdminApiError";
     this.status = status;
+    this.code = code;
   }
 }
 
-export function adminErrorMessage(status: number): string {
+// Stable codes from the booking API. Unknown codes fall back to the status message.
+const CODE_MESSAGES: Record<string, string> = {
+  stale: "Este registro mudou desde que a tela foi carregada. Recarregue e confira antes de repetir.",
+  invalid_state: "A reserva não está mais nessa situação. Recarregue a lista para ver o estado atual.",
+  deposit_mismatch: "O valor informado é diferente do sinal previsto para esta reserva. Nada foi confirmado.",
+  hold_expired: "O prazo do sinal já venceu e o horário pode ter sido liberado. Combine um novo horário com a cliente.",
+  calendar_in_use: "Esta agenda do Google tem reservas ativas ou remoções pendentes. Resolva-as antes de trocar o calendário.",
+  calendar_unavailable: "O Google Agenda não respondeu. Nada foi alterado; tente novamente em instantes.",
+  calendar_not_configured: "A integração com o Google Agenda ainda não foi configurada no servidor.",
+  evaluation_required: "Este procedimento começa por avaliação e não é reservável diretamente.",
+  agenda_not_configured: "A agenda desta profissional ainda não tem calendário e horários configurados.",
+  not_bookable: "Procedimento ou profissional indisponível para reserva online: confira publicação, vínculo e credencial verificada.",
+  too_close: "Horários com menos de 3 horas de antecedência não são marcados pelo sistema.",
+  slot_unavailable: "Esse horário não está mais disponível. Atualize a prévia e escolha outro.",
+  not_found: "Registro não encontrado. Recarregue a página.",
+};
+
+export function adminErrorMessage(status: number, code: string | null = null): string {
+  if (code && CODE_MESSAGES[code]) return CODE_MESSAGES[code];
   switch (status) {
     case 401: return "Sua sessão expirou ou não é válida. Entre novamente com o Google.";
     case 403: return "Esta conta não tem permissão para esta ação. Confira a conta ou a atribuição de revisão.";
@@ -21,16 +41,25 @@ export function adminErrorMessage(status: number): string {
   }
 }
 
+const ID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+const ADMIN_PATHS = [
+  /^\/api\/admin\/(me|professionals|services)(\/[a-zA-Z0-9-]+)?(\/(verify|revoke|approve|publish|unpublish))?$/,
+  new RegExp(`^/api/admin/professionals/${ID}/schedule$`),
+  /^\/api\/admin\/bookings\?scope=(upcoming|history)$/,
+  new RegExp(`^/api/admin/bookings/${ID}/(deposit|cancel|resolve|reschedule)$`),
+  new RegExp(`^/api/admin/availability\\?service_id=${ID}&professional_id=${ID}&first_day=\\d{4}-\\d{2}-\\d{2}&days=\\d{1,2}$`),
+];
+
 export async function adminRequest(
   origin: string,
   ticket: RequestTicket,
   path: string,
-  method: "GET" | "POST" | "PATCH" = "GET",
+  method: "GET" | "POST" | "PATCH" | "PUT" = "GET",
   body?: unknown,
 ): Promise<unknown> {
   // Restrict internal calls so neither form input nor a returned URL can cause
   // the Authorization header to be forwarded to another destination.
-  if (!/^\/api\/admin\/(me|professionals|services)(\/[a-zA-Z0-9-]+)?(\/(verify|revoke|approve|publish|unpublish))?$/.test(path)) throw new AdminApiError(0);
+  if (!ADMIN_PATHS.some((pattern) => pattern.test(path))) throw new AdminApiError(0);
   const response = await fetch(`${origin}${path}`, {
     method,
     headers: { Authorization: `Bearer ${ticket.credential}`, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
@@ -41,8 +70,17 @@ export async function adminRequest(
     redirect: "error",
     referrerPolicy: "no-referrer",
   });
-  if (!response.ok) throw new AdminApiError(response.status);
+  if (!response.ok) throw new AdminApiError(response.status, await errorCode(response));
   return response.json();
+}
+
+async function errorCode(response: Response): Promise<string | null> {
+  try {
+    const code: unknown = ((await response.json()) as { code?: unknown }).code;
+    return typeof code === "string" && /^[a-z_]{1,40}$/.test(code) ? code : null;
+  } catch {
+    return null;
+  }
 }
 
 type Row = Record<string, unknown>;
@@ -110,4 +148,52 @@ export function decodeServices(value: unknown): Service[] {
       }),
     };
   });
+}
+
+function money(value: unknown): string {
+  const text = str(value);
+  if (!/^\d{1,8}(\.\d{1,2})?$/.test(text)) throw new AdminApiError(0);
+  return text;
+}
+
+export function decodeBookings(value: unknown): Booking[] {
+  return list(value, (item) => {
+    const data = row(item);
+    const service = row(data.service);
+    const professional = row(data.professional);
+    const contact = row(data.contact);
+    return {
+      id: str(data.id), code: str(data.code), status: oneOf(data.status, BOOKING_STATUSES), version: integer(data.version),
+      starts_at: str(data.starts_at), ends_at: str(data.ends_at), expires_at: nullable(data.expires_at),
+      service: { id: str(service.id), name: str(service.name) },
+      professional: { id: str(professional.id), name: str(professional.name) },
+      contact: { name: str(contact.name), phone: str(contact.phone) },
+      deposit_brl: money(data.deposit_brl), deposit_confirmed_at: nullable(data.deposit_confirmed_at),
+      calendar_status: str(data.calendar_status), reschedule_count: integer(data.reschedule_count),
+      rescheduled_from_id: nullable(data.rescheduled_from_id), closed_reason: nullable(data.closed_reason),
+    };
+  });
+}
+
+function clock(value: unknown): string {
+  const match = /^(\d{2}):(\d{2})(:00)?$/.exec(str(value));
+  if (!match) throw new AdminApiError(0);
+  return `${match[1]}:${match[2]}`;
+}
+
+export function decodeSchedule(value: unknown): Schedule {
+  const data = row(value);
+  return {
+    professional_id: str(data.professional_id), calendar_id: nullable(data.calendar_id), revision: integer(data.revision),
+    rules: list(data.rules, (item) => {
+      const rule = row(item);
+      const weekday = integer(rule.weekday);
+      if (weekday > 6) throw new AdminApiError(0);
+      return { weekday, start: clock(rule.start), end: clock(rule.end) };
+    }),
+  };
+}
+
+export function decodeSlots(value: unknown): string[] {
+  return list(row(value).slots, str);
 }

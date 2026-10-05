@@ -95,7 +95,7 @@ async def deliver_due(
                 report.delivered += 1
                 continue
             async with session.begin():
-                booking = await session.get(Booking, job.booking_id)
+                booking = await session.get(Booking, job.booking_id, populate_existing=True)
                 relevant = (
                     booking is not None
                     and job.event is not None

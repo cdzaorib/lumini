@@ -7,6 +7,7 @@ import {
   AdminApiError,
   adminErrorMessage,
   adminRequest,
+  decodeBookings,
   decodeIdentity,
   decodeProfessionals,
   decodeServices,
@@ -14,13 +15,22 @@ import {
 import { GOOGLE_SCRIPT, googleAccountsId, type CredentialResponse } from "@/lib/admin/google";
 import { AdminSession, type RequestTicket } from "@/lib/admin/session";
 import type { AdminConfig } from "@/lib/admin/config";
-import type { AdminIdentity, Catalog, Mutation } from "@/lib/admin/types";
+import type { AdminIdentity, Booking, BookingScope, Catalog, Mutation, Query } from "@/lib/admin/types";
 
+import { AgendaSection } from "./agenda";
+import { BookingsSection } from "./bookings";
 import { ProfessionalsSection } from "./professionals";
 import { ServicesSection } from "./services";
 import { ui } from "./ui";
 
 type Notice = { kind: "success" | "error"; text: string } | null;
+type View = "bookings" | "agenda" | "catalog";
+
+const VIEWS: { id: View; label: string }[] = [
+  { id: "bookings", label: "Reservas" },
+  { id: "agenda", label: "Agenda" },
+  { id: "catalog", label: "Catálogo" },
+];
 
 export function AdminApp({ config, nonce }: { config: AdminConfig | null; nonce?: string }) {
   return (
@@ -50,6 +60,10 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
   const [session] = useState(() => new AdminSession());
   const [identity, setIdentity] = useState<AdminIdentity | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [bookings, setBookings] = useState<Booking[] | null>(null);
+  const [scope, setScope] = useState<BookingScope>("upcoming");
+  const scopeRef = useRef<BookingScope>("upcoming");
+  const [view, setView] = useState<View>("bookings");
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
   const [scriptReady, setScriptReady] = useState(false);
@@ -63,6 +77,7 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
       googleAccountsId()?.disableAutoSelect();
       setIdentity(null);
       setCatalog(null);
+      setBookings(null);
       setNotice(message);
     },
     [session],
@@ -85,15 +100,17 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
 
   const loadCatalog = useCallback(
     async (ticket: RequestTicket) => {
-      const [professionals, services] = await Promise.all([
+      const [professionals, services, booked] = await Promise.all([
         adminRequest(config.apiOrigin, ticket, "/api/admin/professionals"),
         adminRequest(config.apiOrigin, ticket, "/api/admin/services"),
+        adminRequest(config.apiOrigin, ticket, `/api/admin/bookings?scope=${scopeRef.current}`),
       ]);
       if (!ticket.isCurrent()) return;
       setCatalog({
         professionals: decodeProfessionals(professionals),
         services: decodeServices(services),
       });
+      setBookings(decodeBookings(booked));
     },
     [config.apiOrigin],
   );
@@ -168,13 +185,54 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
     [config.apiOrigin, loadCatalog, report, session, signOut],
   );
 
+  const query: Query = useCallback(
+    async (path, decode) => {
+      const ticket = session.capture();
+      if (!ticket) {
+        signOut({ kind: "error", text: adminErrorMessage(401) });
+        return null;
+      }
+      try {
+        const result = decode(await adminRequest(config.apiOrigin, ticket, path));
+        return ticket.isCurrent() ? result : null;
+      } catch (error) {
+        report(error);
+        return null;
+      }
+    },
+    [config.apiOrigin, report, session, signOut],
+  );
+
+  const changeScope = useCallback(
+    async (next: BookingScope) => {
+      const ticket = session.capture();
+      if (!ticket) return;
+      setBusy(true);
+      try {
+        const booked = decodeBookings(
+          await adminRequest(config.apiOrigin, ticket, `/api/admin/bookings?scope=${next}`),
+        );
+        if (!ticket.isCurrent()) return;
+        // Switch the heading and the list together, never one before the other.
+        scopeRef.current = next;
+        setScope(next);
+        setBookings(booked);
+      } catch (error) {
+        report(error);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [config.apiOrigin, report, session],
+  );
+
   const reload = useCallback(async () => {
     const ticket = session.capture();
     if (!ticket) return;
     setBusy(true);
     try {
       await loadCatalog(ticket);
-      setNotice({ kind: "success", text: "Catálogo atualizado." });
+      setNotice({ kind: "success", text: "Dados atualizados." });
     } catch (error) {
       report(error);
     } finally {
@@ -238,19 +296,55 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
             <div ref={buttonRef} className="mt-6 min-h-11" />
             {!scriptReady && <p className={ui.hint}>Carregando o login do Google…</p>}
           </section>
-        ) : !catalog ? (
-          <p aria-busy="true">Carregando catálogo…</p>
+        ) : !catalog || !bookings ? (
+          <p aria-busy="true">Carregando dados…</p>
         ) : (
-          <div className="flex flex-col gap-12">
-            <h1 className="sr-only">Catálogo da clínica</h1>
-            <ProfessionalsSection professionals={catalog.professionals} mutate={mutate} busy={busy} />
-            <ServicesSection
-              catalog={catalog}
-              identity={identity}
-              mutate={mutate}
-              busy={busy}
-            />
-          </div>
+          <>
+            <h1 className="sr-only">Painel da clínica</h1>
+            <nav aria-label="Seções do painel" className="mb-8 flex flex-wrap gap-2 border-b border-lumini-gold/40 pb-4">
+              {VIEWS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-current={view === item.id ? "page" : undefined}
+                  className={view === item.id ? ui.button : ui.secondary}
+                  onClick={() => setView(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+            {view === "bookings" && (
+              <BookingsSection
+                bookings={bookings}
+                scope={scope}
+                onScope={(next) => void changeScope(next)}
+                mutate={mutate}
+                query={query}
+                busy={busy}
+              />
+            )}
+            {view === "agenda" && (
+              <AgendaSection
+                professionals={catalog.professionals}
+                services={catalog.services}
+                mutate={mutate}
+                query={query}
+                busy={busy}
+              />
+            )}
+            {view === "catalog" && (
+              <div className="flex flex-col gap-12">
+                <ProfessionalsSection professionals={catalog.professionals} mutate={mutate} busy={busy} />
+                <ServicesSection
+                  catalog={catalog}
+                  identity={identity}
+                  mutate={mutate}
+                  busy={busy}
+                />
+              </div>
+            )}
+          </>
         )}
       </main>
     </>

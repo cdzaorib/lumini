@@ -13,8 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession, create_async_e
 
 from lumini.app import create_app
 from lumini.auth import AdminPrincipal, require_admin
-from lumini.catalog.router import get_session
 from lumini.catalog.service import CATALOG_LOCK_KEY
+from lumini.deps import get_session
 from lumini.settings import Settings
 
 pytestmark = pytest.mark.integration
