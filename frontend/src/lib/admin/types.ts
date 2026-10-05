@@ -79,3 +79,15 @@ export type Booking = {
 
 export type ScheduleRule = { weekday: number; start: string; end: string };
 export type Schedule = { professional_id: string; calendar_id: string | null; revision: number; rules: ScheduleRule[] };
+
+export type Integrations = {
+  whatsapp: {
+    configured: boolean;
+    state: string | null;
+    needs_attention: boolean;
+    changed_at: string | null;
+    human_mode_conversations: number;
+  };
+  calendar_configured: boolean;
+  self_service_configured: boolean;
+};

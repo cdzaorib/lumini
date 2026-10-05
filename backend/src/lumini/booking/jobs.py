@@ -18,6 +18,10 @@ from lumini.booking.dispatch import TickReport, tick
 from lumini.booking.reconcile import ReconcileReport, reconcile_calendars
 from lumini.resources import open_resources
 from lumini.settings import Settings
+from lumini.whatsapp.bot import Channel, handle, pending_conversations
+from lumini.whatsapp.conversations import retry_failed_replies, settle_unknown
+from lumini.whatsapp.evolution import WhatsAppSender
+from lumini.whatsapp.notifier import WhatsAppNotifier
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +54,12 @@ async def run_tick(
     settings: Settings,
     *,
     calendar: CalendarAdapter | None,
+    sender: WhatsAppSender | None = None,
     clock: Callable[[], datetime] = utc_now,
 ) -> TickReport | None:
-    """None when another run holds the lock."""
+    """None when another run holds the lock. With WhatsApp: settle unclassified `fromMe`
+    messages first (they hold automatic sends), deliver notifications, retry replies that failed
+    during an outage and answer conversations the webhook fast path missed."""
     async with (
         open_resources(settings) as resources,
         _exclusive(resources.redis_client, TICK_LOCK) as acquired,
@@ -61,8 +68,19 @@ async def run_tick(
             return None
         if resources.sessions is None:
             raise RuntimeError("LUMINI_DATABASE_URL is required for periodic jobs")
+        now = clock()
         async with resources.sessions() as session:
-            report = await tick(session, calendar=calendar, notifier=None, now=clock())
+            if sender is not None:
+                await settle_unknown(session, now=now)
+            notifier = (
+                WhatsAppNotifier(session, sender, settings, now=now) if sender is not None else None
+            )
+            report = await tick(session, calendar=calendar, notifier=notifier, now=now)
+            if sender is not None:
+                channel = Channel(sender, calendar, settings)
+                await retry_failed_replies(session, sender, now=now)
+                for conversation_id in await pending_conversations(session, now=now):
+                    await handle(session, channel, conversation_id, now=now)
     # Counts only: ids, names and provider details stay out of logs.
     logger.info(
         "booking tick: expired=%d scheduled=%d delivered=%d skipped=%d retried=%d failed=%d "

@@ -25,6 +25,15 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
         yield session
 
 
+def get_sessions(request: Request) -> async_sessionmaker[AsyncSession]:
+    """For work that outlives the request (background replies) or opens several sessions."""
+    resources = getattr(request.app.state, "resources", None)
+    sessions = cast(async_sessionmaker[AsyncSession] | None, getattr(resources, "sessions", None))
+    if sessions is None:
+        raise HTTPException(503, "Service unavailable", headers=NO_STORE)
+    return sessions
+
+
 def get_now(request: Request) -> datetime:
     # A single clock per request; tests inject a fixed one through app.state.clock.
     clock = cast(Callable[[], datetime] | None, getattr(request.app.state, "clock", None))

@@ -9,27 +9,30 @@ import {
   adminRequest,
   decodeBookings,
   decodeIdentity,
+  decodeIntegrations,
   decodeProfessionals,
   decodeServices,
 } from "@/lib/admin/api";
 import { GOOGLE_SCRIPT, googleAccountsId, type CredentialResponse } from "@/lib/admin/google";
 import { AdminSession, type RequestTicket } from "@/lib/admin/session";
 import type { AdminConfig } from "@/lib/admin/config";
-import type { AdminIdentity, Booking, BookingScope, Catalog, Command, Mutation, Query } from "@/lib/admin/types";
+import type { AdminIdentity, Booking, BookingScope, Catalog, Command, Integrations, Mutation, Query } from "@/lib/admin/types";
 
 import { AgendaSection } from "./agenda";
 import { BookingsSection } from "./bookings";
+import { IntegrationsSection, attentionText } from "./integrations";
 import { ProfessionalsSection } from "./professionals";
 import { ServicesSection } from "./services";
 import { ui } from "./ui";
 
 type Notice = { kind: "success" | "error"; text: string } | null;
-type View = "bookings" | "agenda" | "catalog";
+type View = "bookings" | "agenda" | "catalog" | "integrations";
 
 const VIEWS: { id: View; label: string }[] = [
   { id: "bookings", label: "Reservas" },
   { id: "agenda", label: "Agenda" },
   { id: "catalog", label: "Catálogo" },
+  { id: "integrations", label: "Integrações" },
 ];
 
 export function AdminApp({ config, nonce }: { config: AdminConfig | null; nonce?: string }) {
@@ -61,6 +64,7 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
   const [identity, setIdentity] = useState<AdminIdentity | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [bookings, setBookings] = useState<Booking[] | null>(null);
+  const [integrations, setIntegrations] = useState<Integrations | null>(null);
   const [scope, setScope] = useState<BookingScope>("upcoming");
   const scopeRef = useRef<BookingScope>("upcoming");
   const [view, setView] = useState<View>("bookings");
@@ -78,6 +82,7 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
       setIdentity(null);
       setCatalog(null);
       setBookings(null);
+      setIntegrations(null);
       setNotice(message);
     },
     [session],
@@ -100,10 +105,11 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
 
   const loadCatalog = useCallback(
     async (ticket: RequestTicket) => {
-      const [professionals, services, booked] = await Promise.all([
+      const [professionals, services, booked, status] = await Promise.all([
         adminRequest(config.apiOrigin, ticket, "/api/admin/professionals"),
         adminRequest(config.apiOrigin, ticket, "/api/admin/services"),
         adminRequest(config.apiOrigin, ticket, `/api/admin/bookings?scope=${scopeRef.current}`),
+        adminRequest(config.apiOrigin, ticket, "/api/admin/integrations"),
       ]);
       if (!ticket.isCurrent()) return;
       setCatalog({
@@ -111,6 +117,7 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
         services: decodeServices(services),
       });
       setBookings(decodeBookings(booked));
+      setIntegrations(decodeIntegrations(status));
     },
     [config.apiOrigin],
   );
@@ -317,11 +324,19 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
             <div ref={buttonRef} className="mt-6 min-h-11" />
             {!scriptReady && <p className={ui.hint}>Carregando o login do Google…</p>}
           </section>
-        ) : !catalog || !bookings ? (
+        ) : !catalog || !bookings || !integrations ? (
           <p aria-busy="true">Carregando dados…</p>
         ) : (
           <>
             <h1 className="sr-only">Painel da clínica</h1>
+            {attentionText(integrations) && (
+              <p className="mb-6 border-l-4 border-lumini-rose bg-lumini-white px-4 py-3 text-sm">
+                {attentionText(integrations)}{" "}
+                <button type="button" className="underline" onClick={() => setView("integrations")}>
+                  Ver integrações
+                </button>
+              </p>
+            )}
             <nav aria-label="Seções do painel" className="mb-8 flex flex-wrap gap-2 border-b border-lumini-gold/40 pb-4">
               {VIEWS.map((item) => (
                 <button
@@ -355,6 +370,7 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
                 busy={busy}
               />
             )}
+            {view === "integrations" && <IntegrationsSection integrations={integrations} />}
             {view === "catalog" && (
               <div className="flex flex-col gap-12">
                 <ProfessionalsSection professionals={catalog.professionals} mutate={mutate} busy={busy} />

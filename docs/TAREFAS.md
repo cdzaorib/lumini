@@ -17,8 +17,8 @@ Atualizar após cada tarefa concluída/bloqueada e apontar detalhes em arquivos 
 | T08b | API administrativa e painel de reservas/agenda | Concluída (real local; calendário fake) | `VALIDACAO-003.md`: 152 unitários + 119 integrações; E2E 26/26 no Chrome, CSP 0; ADR-014; corrigida leitura desatualizada no núcleo |
 | T08c | Worker (Celery beat), adaptador Google Calendar e reconciliação | Concluída (real local; Google simulado) | `VALIDACAO-004.md`: 194 unitários + 127 integrações; worker real com beat executou o tick; ADR-015 |
 | T08d | Autoatendimento por link seguro (cancelar/reagendar) | Concluída (real local) | `VALIDACAO-005.md`: 211 unitários + 140 integrações (20 rodadas estáveis); E2E cliente 18/18 e painel 26/26; ADR-016; corrigido deadlock intermitente da T08a |
-| T09 | PoC Evolution e modo humano | Próxima (sem instância: simulada) | Provar origem das mensagens; invalidar respostas pendentes; sem número real por enquanto |
-| T10 | IA, experiência pública e piloto | Planejada | Seguir fases 4–6 do plano e seus gates |
+| T09 | WhatsApp (Evolution), modo humano e avisos | Concluída (real local; Evolution simulada — PoC real pendente) | `VALIDACAO-006.md`: 238 unitários + 161 integrações (10 rodadas); E2E integrações 12/12, painel 26/26, cliente 18/18; ADR-017; `RUNBOOK-WHATSAPP.md` |
+| T10 | IA, experiência pública e piloto | Próxima | Seguir fases 4–6 do plano e seus gates |
 
 ## 2026-10-01 — T01
 
@@ -103,3 +103,11 @@ Usuário pediu para seguir até a etapa 10. Implementado: `booking/links.py` (to
 Defeitos encontrados e corrigidos: deadlock intermitente em reservas simultâneas (T08a; repetição da transação, regressão determinística + 20 rodadas verdes); página não reagia a outro link aberto na mesma aba; dia da semana com maiúsculas em todas as palavras.
 
 Evidência em `VALIDACAO-005.md`. Real local: API pública + PostgreSQL + Redis + página no Chrome. Mock: calendário em memória, identidade do painel. Não iniciado: envio automático do link (T09).
+
+## 2026-10-05 — T09 WhatsApp e modo humano (Claude)
+
+Sem instância de teste: construído e validado com webhooks simulados e remetente falso; documentação da Evolution consultada (formato do envio e do webhook; mensagens da API chegam como `messages.upsert` `fromMe`). Implementado: migração `0004_whatsapp` (conversas, metadados de mensagens, estado de integração), `lumini/whatsapp/` (cliente Evolution, webhook autenticado, registro idempotente, modo humano com `#bot`/`#pausa`, envio revalidado por modo/versão, fluxo numérico até a reserva, notifier do outbox com link da T08d, reenvio após queda), worker integrado (classificação, avisos, reenvio, varredura), aba “Integrações” e aviso de desconexão no painel, `RUNBOOK-WHATSAPP.md`.
+
+Defeitos/ajustes encontrados durante a validação: webhook recusado ainda resolvia a dependência de banco (autenticação passou a ser a primeira dependência); relógio do banco misturado ao da aplicação em carências (horários gravados explicitamente); equipe respondendo durante um envio do bot demorava até 2 min para pausar o bot (agora pausa ao fim do envio).
+
+Real local: webhook + PostgreSQL + worker + painel no Chrome. Mock: Evolution (remetente falso, payloads simulados), calendário em memória. Não validado: instância real (PoC listada no runbook), números com/sem nono dígito e `@lid` reais, entrega real de mensagens.

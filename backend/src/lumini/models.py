@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Any, cast
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -323,3 +324,82 @@ class OutboxJob(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+# WhatsApp -----------------------------------------------------------------------------------
+
+CONVERSATION_MODES = ("bot", "human")
+MESSAGE_ORIGINS = ("client", "bot", "staff", "unknown")
+MESSAGE_STATUSES = ("pending", "handled", "ignored", "sending", "sent", "failed", "skipped")
+
+
+class Conversation(Base):
+    """One WhatsApp chat: the human-mode switch, its version and the flow state (ids only)."""
+
+    __tablename__ = "conversations"
+    __table_args__ = (
+        CheckConstraint(_in("mode", CONVERSATION_MODES), name="ck_conversations_mode"),
+        CheckConstraint("version > 0", name="ck_conversations_version"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    chat_id: Mapped[str] = mapped_column(String(80), unique=True)  # WhatsApp JID; never logged
+    phone_e164: Mapped[str | None] = mapped_column(String(16), index=True)
+    mode: Mapped[str] = mapped_column(String(10), server_default="bot")
+    mode_reason: Mapped[str | None] = mapped_column(String(30))
+    mode_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Bumped by every client message and mode change; queued automatic text checks it before send.
+    version: Mapped[int] = mapped_column(Integer, server_default="1")
+    state: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    marketing_opt_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class WhatsAppMessage(Base):
+    """Message metadata. Client text stays only while waiting to be handled; a bot reply keeps its
+    text only until it is delivered (retry after an outage). Notifications are re-rendered."""
+
+    __tablename__ = "whatsapp_messages"
+    __table_args__ = (
+        CheckConstraint("direction IN ('in', 'out')", name="ck_whatsapp_messages_direction"),
+        CheckConstraint(_in("origin", MESSAGE_ORIGINS), name="ck_whatsapp_messages_origin"),
+        CheckConstraint(_in("status", MESSAGE_STATUSES), name="ck_whatsapp_messages_status"),
+        CheckConstraint(
+            "body IS NULL OR status IN ('pending', 'sending', 'failed')",
+            name="ck_whatsapp_messages_body",
+        ),
+        Index("ix_whatsapp_messages_conversation_status", "conversation_id", "status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="RESTRICT")
+    )
+    provider_id: Mapped[str | None] = mapped_column(String(128), unique=True)
+    dedupe_key: Mapped[str | None] = mapped_column(String(200), unique=True)
+    direction: Mapped[str] = mapped_column(String(3))
+    origin: Mapped[str] = mapped_column(String(10))
+    purpose: Mapped[str | None] = mapped_column(String(40))
+    body: Mapped[str | None] = mapped_column(Text)
+    conversation_version: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(12))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class IntegrationState(Base):
+    """Last known state of an external channel (e.g. WhatsApp connection), shown in the panel."""
+
+    __tablename__ = "integration_states"
+
+    name: Mapped[str] = mapped_column(String(30), primary_key=True)
+    state: Mapped[str] = mapped_column(String(20))
+    detail: Mapped[str | None] = mapped_column(String(60))
+    needs_attention: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

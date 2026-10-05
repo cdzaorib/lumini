@@ -39,8 +39,9 @@ def test_jobs_run_without_calendar_credentials_only_where_safe(
 ) -> None:
     calls: list[tuple[str, object]] = []
 
-    async def fake_tick(settings: Settings, *, calendar: object) -> None:
+    async def fake_tick(settings: Settings, *, calendar: object, sender: object = None) -> None:
         calls.append(("tick", calendar))
+        assert sender is None  # no Evolution configuration in these settings
 
     async def fake_reconcile(settings: Settings, *, calendar: object) -> None:
         calls.append(("reconcile", calendar))

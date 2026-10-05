@@ -15,6 +15,7 @@ from celery import Celery
 from lumini.booking.google_calendar import build_calendar
 from lumini.booking.jobs import run_reconcile, run_tick
 from lumini.settings import Settings
+from lumini.whatsapp.evolution import build_sender
 
 TICK_TASK = "lumini.booking.tick"
 RECONCILE_TASK = "lumini.calendar.reconcile"
@@ -48,10 +49,11 @@ def create_worker(settings: Settings | None = None) -> Celery:
         }
 
     calendar = build_calendar(config)
+    sender = build_sender(config)
 
     @worker.task(name=TICK_TASK, shared=False)  # type: ignore[untyped-decorator]
     def booking_tick() -> None:
-        asyncio.run(run_tick(config, calendar=calendar))
+        asyncio.run(run_tick(config, calendar=calendar, sender=sender))
 
     @worker.task(name=RECONCILE_TASK, shared=False)  # type: ignore[untyped-decorator]
     def calendar_reconcile() -> None:

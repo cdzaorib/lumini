@@ -68,6 +68,10 @@ Um processo Celery com beat embutido (`--beat`, concorrência 1). Tarefas (`book
 
 Mensagens do beat expiram para um worker parado não reexecutar um acúmulo de ciclos. Rode **um** beat; duplicado só desperdiça trabalho. Logs só com contagens e códigos fixos.
 
+## WhatsApp (`lumini/whatsapp/`)
+
+Evolution API: `evolution.py` (só envio de texto), `router.py` (webhook autenticado e estado das integrações), `conversations.py` (registro idempotente, modo humano, envio revalidado), `flow.py` (fluxo numérico sobre o catálogo publicado), `bot.py` (responder pendências), `notifier.py` (avisos do outbox), `texts.py` (rascunhos para aprovação). Configuração `LUMINI_EVOLUTION_*` na API e no worker; operação em `docs/RUNBOOK-WHATSAPP.md`; decisões em ADR-017. Testado com remetente falso; **PoC com instância real pendente**.
+
 ## Google Calendar (`booking/google_calendar.py`)
 
 API REST v3 com conta de serviço (escopo `calendar.events`), `requests` em threads, timeout 3 s/10 s, sem redirects, resposta limitada a 1 MB, até 10 páginas. Falhas viram `CalendarUnavailable` (tentar depois: rede, 429, 5xx, cota, token) ou `CalendarRejected` (calendário inexistente ou não compartilhado, 400), sem texto do Google. Eventos: id determinístico, `visibility: private`, sem convidados nem `sendUpdates`. Configuração: `LUMINI_GOOGLE_CALENDAR_CREDENTIALS` com o JSON da chave, injetado pelo gerenciador de segredos na API e no worker; `token_uri` precisa ser o do Google. Testes usam transporte falso e chaves geradas na hora; **nunca validado contra o Google real**.

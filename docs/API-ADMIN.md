@@ -84,3 +84,8 @@ Credencial = token do link (HMAC-SHA256 sobre reserva + validade até o início 
 - `GET /api/public/booking/availability?first_day&days=1..7` → `{slots}` só quando `can_reschedule`; o próprio horário não aparece.
 - `POST /api/public/booking/cancel` com `{expected_version}`: reserva aguardando sinal a qualquer momento; confirmada só com mais de 24 h (no limite exato, humano). Devolução do sinal é decisão da clínica.
 - `POST /api/public/booking/reschedule` com `{expected_version, starts_at}`: só confirmada, mais de 24 h e nenhum reagendamento anterior; sinal mantido. Resposta `{booking, token}` com o link da **nova** reserva; o link antigo passa a mostrar a original cancelada.
+
+## WhatsApp (T09)
+
+- `POST /api/webhooks/evolution` (Evolution → API). Exige `Authorization: Bearer <LUMINI_EVOLUTION_WEBHOOK_TOKEN>` (401), instância igual a `LUMINI_EVOLUTION_INSTANCE` (403), corpo ≤ 1 MB (413), JSON objeto (400); sem configuração → 404. Eventos tratados: `messages.upsert`/`send.message` (mensagens), `connection.update`, `qrcode.updated`; demais ignorados com 200. Banco indisponível → 503. Detalhes em ADR-017 e `RUNBOOK-WHATSAPP.md`.
+- `GET /api/admin/integrations` → `{whatsapp: {configured, state, needs_attention, changed_at, human_mode_conversations}, calendar_configured, self_service_configured}`. Estados: `open`, `connecting`, `close`, `qr_required`, `unknown`; configurado sem notícia da instância conta como `needs_attention`.

@@ -19,6 +19,9 @@ from lumini.booking.router import router as booking_router
 from lumini.catalog.router import admin_router, public_router
 from lumini.resources import DependencyStatus, Resources, check_dependency, open_resources
 from lumini.settings import Settings
+from lumini.whatsapp.evolution import build_sender
+from lumini.whatsapp.router import admin_router as integrations_router
+from lumini.whatsapp.router import webhook_router
 
 
 class Liveness(BaseModel):
@@ -66,6 +69,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.identity_verifier = build_identity_verifier(config)
     # None until the clinic's service account is configured: calendar routes answer 503.
     app.state.calendar = build_calendar(config)
+    # None until the Evolution instance is configured: the webhook answers 404.
+    app.state.whatsapp = build_sender(config)
     app.add_exception_handler(RequestValidationError, sanitized_validation_error)
     for error_type in BOOKING_ERRORS:
         app.add_exception_handler(error_type, booking_error_handler)
@@ -82,6 +87,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(admin_router)
     app.include_router(booking_router)
     app.include_router(self_service_router)
+    app.include_router(webhook_router)
+    app.include_router(integrations_router)
     app.include_router(public_router)
 
     @app.get("/health/live", response_model=Liveness, tags=["health"])

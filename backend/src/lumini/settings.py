@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     # origin the links point to. Without both, links are not issued.
     manage_link_secret: SecretStr | None = Field(default=None, min_length=32)
     public_site_url: str | None = None
+    # WhatsApp through a self-hosted Evolution API instance (T09). The webhook token is sent by
+    # Evolution in a custom header configured on the instance; all four are required.
+    evolution_base_url: str | None = None
+    evolution_instance: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,64}$")
+    evolution_api_key: SecretStr | None = None
+    evolution_webhook_token: SecretStr | None = Field(default=None, min_length=32)
 
     @field_validator("google_client_id")
     @classmethod
@@ -110,6 +116,32 @@ class Settings(BaseSettings):
             return None
         _service_account_info(value.get_secret_value())
         return value
+
+    @field_validator("evolution_base_url")
+    @classmethod
+    def validate_evolution_base_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        url = urlsplit(value.strip())
+        loopback = url.hostname in {"localhost", "127.0.0.1"}
+        if (
+            (url.scheme != "https" and not (url.scheme == "http" and loopback))
+            or not url.hostname
+            or url.username
+            or url.password
+            or url.query
+            or url.fragment
+        ):
+            raise ValueError("evolution_base_url must be HTTPS (HTTP only on loopback)")
+        return f"{url.scheme}://{url.netloc}{url.path.rstrip('/')}"
+
+    def whatsapp_configured(self) -> bool:
+        return None not in (
+            self.evolution_base_url,
+            self.evolution_instance,
+            self.evolution_api_key,
+            self.evolution_webhook_token,
+        )
 
     @field_validator("public_site_url")
     @classmethod

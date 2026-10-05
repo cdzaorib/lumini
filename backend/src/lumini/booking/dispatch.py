@@ -43,10 +43,11 @@ class NotifierUnavailable(Exception):
 
 
 class Notifier(Protocol):
-    """Channel adapter (WhatsApp, later). It loads approved content and contact data itself;
-    the outbox only carries the booking id and the event name."""
+    """Channel adapter (WhatsApp). It loads approved content and contact data itself; the outbox
+    only carries the booking id and the event name. Returns None when delivered, or a short note
+    when the message was deliberately not sent (e.g. the team is talking in human mode)."""
 
-    async def send(self, event: str, booking_id: UUID) -> None: ...
+    async def send(self, event: str, booking_id: UUID) -> str | None: ...
 
 
 def still_relevant(event: str, booking: Booking, now: datetime) -> bool:
@@ -74,19 +75,26 @@ class TickReport:
 async def deliver_due(
     session: AsyncSession,
     *,
-    calendar: CalendarAdapter,
+    calendar: CalendarAdapter | None,
     notifier: Notifier | None,
     now: datetime,
     policy: BookingPolicy = DEFAULT_POLICY,
     limit: int = 20,
     report: TickReport | None = None,
 ) -> TickReport:
-    """Without a notifier, messages stay pending (never lost) and only calendar jobs run."""
+    """Without a notifier, messages stay pending (never lost); without a calendar adapter,
+    calendar jobs stay pending."""
     report = report or TickReport()
-    kinds = ("calendar_sync", "notification") if notifier else ("calendar_sync",)
+    kinds = tuple(
+        kind
+        for kind, enabled in (("calendar_sync", calendar), ("notification", notifier))
+        if enabled is not None
+    )
+    if not kinds:
+        return report
     for job in await claim(session, now=now, kinds=kinds, limit=limit):
         try:
-            if job.kind == "calendar_sync":
+            if job.kind == "calendar_sync" and calendar is not None:
                 result = await sync_calendar(
                     session, calendar, job.booking_id, now=now, policy=policy
                 )
@@ -107,9 +115,13 @@ async def deliver_due(
                 await finish(session, job.id, note="stale_skipped")
                 report.skipped += 1
                 continue
-            await notifier.send(job.event, job.booking_id)
-            await finish(session, job.id)
-            report.delivered += 1
+            note = await notifier.send(job.event, job.booking_id)
+            await finish(session, job.id, note=note)
+            if note is None:
+                report.delivered += 1
+            else:
+                report.skipped += 1
+                report.notes.append(note)
         except (CalendarUnavailable, NotifierUnavailable) as error:
             code = (
                 "calendar_unavailable"
@@ -138,15 +150,14 @@ async def tick(
 ) -> TickReport:
     """One worker cycle; safe to run concurrently and repeatedly.
 
-    Without a calendar adapter, calendar jobs wait (never turned into conflicts); expiry and
-    message scheduling still run.
+    Without a calendar adapter, calendar jobs wait (never turned into conflicts); expiry, message
+    scheduling and (with a notifier) messages still run.
     """
     report = TickReport()
     report.expired = len(await expire_due(session, now=now))
     report.scheduled_messages = await enqueue_due_notifications(session, now=now, policy=policy)
-    if calendar is None:
-        return report
-    report.requeued = await requeue_stalled(session, now=now)
+    if calendar is not None:
+        report.requeued = await requeue_stalled(session, now=now)
     return await deliver_due(
         session, calendar=calendar, notifier=notifier, now=now, policy=policy, report=report
     )
