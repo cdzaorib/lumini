@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     # Service account key (JSON) for Google Calendar; injected by the secret manager, never a file
     # in the repository. Without it, calendar-dependent routes and jobs stay disabled.
     google_calendar_credentials: SecretStr | None = None
+    # Client self-service links (T08d): HMAC key from the secret manager and the public site
+    # origin the links point to. Without both, links are not issued.
+    manage_link_secret: SecretStr | None = Field(default=None, min_length=32)
+    public_site_url: str | None = None
 
     @field_validator("google_client_id")
     @classmethod
@@ -106,6 +110,25 @@ class Settings(BaseSettings):
             return None
         _service_account_info(value.get_secret_value())
         return value
+
+    @field_validator("public_site_url")
+    @classmethod
+    def validate_public_site_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        url = urlsplit(value.strip())
+        loopback = url.hostname in {"localhost", "127.0.0.1"}
+        if (
+            (url.scheme != "https" and not (url.scheme == "http" and loopback))
+            or not url.hostname
+            or url.username
+            or url.password
+            or url.path not in {"", "/"}
+            or url.query
+            or url.fragment
+        ):
+            raise ValueError("public_site_url must be an HTTPS origin (HTTP only on loopback)")
+        return f"{url.scheme}://{url.netloc}"
 
     @field_validator("cors_origins")
     @classmethod

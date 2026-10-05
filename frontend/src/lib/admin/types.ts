@@ -50,6 +50,8 @@ export type Catalog = { professionals: Professional[]; services: Service[] };
 export type Mutation = (path: string, method: "POST" | "PATCH" | "PUT", body: unknown, success: string) => Promise<boolean>;
 // Authenticated GET whose failure is already reported to the user; null means "nothing to show".
 export type Query = <T>(path: string, decode: (value: unknown) => T) => Promise<T | null>;
+// Authenticated POST whose answer the caller needs (failures already reported).
+export type Command = <T>(path: string, body: unknown, decode: (value: unknown) => T) => Promise<T | null>;
 
 export const BOOKING_STATUSES = ["pending_calendar", "held", "confirming", "confirmed", "expired", "cancelled", "conflict"] as const;
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];

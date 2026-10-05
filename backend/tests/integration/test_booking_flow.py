@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import func, select, text, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 from lumini.booking.calendar import event_id
@@ -694,3 +694,33 @@ async def test_conflict_and_open_states_block_time_while_closed_states_do_not(
         finally:
             await world.connection.execute(text("ROLLBACK TO SAVEPOINT probe"))
         assert blocked is (status == "conflict"), status
+
+
+class _DeadlockOrig(Exception):
+    sqlstate = "40P01"
+
+
+async def test_deadlocked_hold_is_retried_and_gives_up_after_the_limit(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import lumini.booking.service as service
+
+    original = service._contact_id
+    failures = {"left": 1}
+
+    async def flaky(session: AsyncSession, name: str, phone: str) -> UUID:
+        if failures["left"] > 0:
+            failures["left"] -= 1
+            raise OperationalError("INSERT", {}, _DeadlockOrig())
+        return await original(session, name, phone)
+
+    monkeypatch.setattr(service, "_contact_id", flaky)
+    booking = await hold(world, local(TUESDAY, 10))
+    assert (await reload(world, booking.id)).status == "pending_calendar"
+
+    failures["left"] = service.WRITE_ATTEMPTS
+    with pytest.raises(OperationalError):
+        await hold(world, local(TUESDAY, 14))
+    async with world.session.begin():
+        count = await world.session.scalar(select(func.count()).select_from(Booking))
+    assert count == 1  # every aborted attempt rolled back

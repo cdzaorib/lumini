@@ -46,7 +46,7 @@ const ADMIN_PATHS = [
   /^\/api\/admin\/(me|professionals|services)(\/[a-zA-Z0-9-]+)?(\/(verify|revoke|approve|publish|unpublish))?$/,
   new RegExp(`^/api/admin/professionals/${ID}/schedule$`),
   /^\/api\/admin\/bookings\?scope=(upcoming|history)$/,
-  new RegExp(`^/api/admin/bookings/${ID}/(deposit|cancel|resolve|reschedule)$`),
+  new RegExp(`^/api/admin/bookings/${ID}/(deposit|cancel|resolve|reschedule|manage-link)$`),
   new RegExp(`^/api/admin/availability\\?service_id=${ID}&professional_id=${ID}&first_day=\\d{4}-\\d{2}-\\d{2}&days=\\d{1,2}$`),
 ];
 
@@ -196,4 +196,12 @@ export function decodeSchedule(value: unknown): Schedule {
 
 export function decodeSlots(value: unknown): string[] {
   return list(row(value).slots, str);
+}
+
+export function decodeManageLink(value: unknown): { url: string; expires_at: string } {
+  const data = row(value);
+  const url = str(data.url);
+  // Only links to this site's own self-service page are shown for copying.
+  if (!/^https?:\/\/[^/#?]+\/reserva#[0-9a-f]{42}[A-Za-z0-9_-]{43}$/.test(url)) throw new AdminApiError(0);
+  return { url, expires_at: str(data.expires_at) };
 }

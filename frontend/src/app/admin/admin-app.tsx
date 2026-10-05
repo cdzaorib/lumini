@@ -15,7 +15,7 @@ import {
 import { GOOGLE_SCRIPT, googleAccountsId, type CredentialResponse } from "@/lib/admin/google";
 import { AdminSession, type RequestTicket } from "@/lib/admin/session";
 import type { AdminConfig } from "@/lib/admin/config";
-import type { AdminIdentity, Booking, BookingScope, Catalog, Mutation, Query } from "@/lib/admin/types";
+import type { AdminIdentity, Booking, BookingScope, Catalog, Command, Mutation, Query } from "@/lib/admin/types";
 
 import { AgendaSection } from "./agenda";
 import { BookingsSection } from "./bookings";
@@ -203,6 +203,27 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
     [config.apiOrigin, report, session, signOut],
   );
 
+  const command: Command = useCallback(
+    async (path, body, decode) => {
+      const ticket = session.capture();
+      if (!ticket) {
+        signOut({ kind: "error", text: adminErrorMessage(401) });
+        return null;
+      }
+      setBusy(true);
+      try {
+        const result = decode(await adminRequest(config.apiOrigin, ticket, path, "POST", body));
+        return ticket.isCurrent() ? result : null;
+      } catch (error) {
+        report(error);
+        return null;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [config.apiOrigin, report, session, signOut],
+  );
+
   const changeScope = useCallback(
     async (next: BookingScope) => {
       const ticket = session.capture();
@@ -321,6 +342,7 @@ function ConfiguredAdmin({ config, nonce }: { config: AdminConfig; nonce?: strin
                 onScope={(next) => void changeScope(next)}
                 mutate={mutate}
                 query={query}
+                command={command}
                 busy={busy}
               />
             )}

@@ -71,3 +71,16 @@ Recusas: `{detail: string, code: string}`; ver ADR-014 para a lista de códigos.
 - `POST /api/admin/bookings/{id}/reschedule` com `{expected_version, starts_at (com fuso)}`: só `confirmed`; responde a **nova** reserva (`rescheduled_from_id` = original, sinal mantido); a original fica `cancelled`/`rescheduled`. Repetir a mesma chamada devolve a mesma reserva nova. Horário a menos de 3h → 409 `too_close`.
 
 Toda ação de tela envia a versão vista; versão diferente → 409 `stale` sem efeito parcial.
+
+### Link de autoatendimento da cliente (T08d)
+
+- `POST /api/admin/bookings/{id}/manage-link` → `{url, expires_at}` para reservas `held`/`confirmed` futuras; auditado (`manage_link_issued`). Sem `LUMINI_MANAGE_LINK_SECRET` + `LUMINI_PUBLIC_SITE_URL` → 503 `manage_link_not_configured`. URL: `{site}/reserva#<token>`.
+
+## API pública da cliente (T08d, sem login)
+
+Credencial = token do link (HMAC-SHA256 sobre reserva + validade até o início do atendimento; ADR-016), enviado em `Authorization: Bearer <token>`, nunca na URL da API. Link adulterado, expirado, de outra chave ou de reserva inexistente → 404 `link_invalid` idêntico, antes de abrir sessão de banco. Sem segredo configurado → 503 `self_service_unavailable`. Limite por link: 120 requisições e 30 consultas de horários a cada 10 min (429 `rate_limited`). `Cache-Control: no-store`.
+
+- `GET /api/public/booking` → `{code, status, version, service, professional, starts_at, ends_at, hold_expires_at, deposit_brl, deposit_confirmed, self_service_until, can_cancel, cancel_blocked, can_reschedule, reschedule_blocked}`. **Sem nome, telefone ou ids internos.** Motivos: `within_24h`, `second_reschedule`, `not_confirmed`, `in_progress`, `closed`.
+- `GET /api/public/booking/availability?first_day&days=1..7` → `{slots}` só quando `can_reschedule`; o próprio horário não aparece.
+- `POST /api/public/booking/cancel` com `{expected_version}`: reserva aguardando sinal a qualquer momento; confirmada só com mais de 24 h (no limite exato, humano). Devolução do sinal é decisão da clínica.
+- `POST /api/public/booking/reschedule` com `{expected_version, starts_at}`: só confirmada, mais de 24 h e nenhum reagendamento anterior; sinal mantido. Resposta `{booking, token}` com o link da **nova** reserva; o link antigo passa a mostrar a original cancelada.

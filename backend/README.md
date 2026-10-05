@@ -51,6 +51,8 @@ Falhas de construção dos clientes Redis/SQLAlchemy e do engine de migração s
 
 Regras determinísticas em `policy.py` (ADR-013): disponibilidade = regras semanais da profissional ∩ livre no Google Calendar ∩ sem reserva ativa; reserva idempotente por chave; trava por profissional/horário via `EXCLUDE` gist no PostgreSQL (extensão `btree_gist`, criada pela migração `0003`); estados `pending_calendar → held (2h) → confirming → confirmed`, além de `expired`, `cancelled`, `conflict`. Confirmação de sinal só por equipe autenticada; cancelamento/reagendamento pela cliente só com mais de 24h. O calendário fica atrás de `CalendarAdapter` e é atualizado pelo outbox (`outbox_jobs`), nunca dentro de transação. `dispatch.tick()` expira reservas, agenda mensagens e entrega o outbox revalidando cada mensagem. Testes usam calendário em memória (`tests/booking_fakes.py`); integração real com Google ainda não existe.
 
+Autoatendimento da cliente em `booking/public_router.py` e `booking/links.py` (link assinado, token no fragmento `/reserva#…`, ADR-016); exige `LUMINI_MANAGE_LINK_SECRET` (≥ 32 caracteres, do gerenciador de segredos) e `LUMINI_PUBLIC_SITE_URL`.
+
 Rotas da equipe em `booking/router.py` (agenda, prévia de horários, lista e ações de reserva; contrato em `docs/API-ADMIN.md`). O adaptador de calendário vem de `app.state.calendar` (`lumini.deps.get_calendar`); sem ele, rotas que consultam o Google respondem 503 `calendar_not_configured`. Relógio injetável em `app.state.clock` para testes.
 
 ## Worker

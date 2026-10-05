@@ -129,3 +129,40 @@ class BookingAdminView(BaseModel):
     rescheduled_from_id: UUID | None
     closed_reason: str | None
     created_at: datetime
+
+
+class PublicBooking(BaseModel):
+    """What a client sees through their link: no contact data, no internal ids or audit."""
+
+    code: str
+    status: str
+    version: int
+    service: str
+    professional: str
+    starts_at: datetime
+    ends_at: datetime
+    hold_expires_at: datetime | None
+    deposit_brl: Decimal
+    deposit_confirmed: bool
+    self_service_until: datetime
+    can_cancel: bool
+    cancel_blocked: str | None
+    can_reschedule: bool
+    reschedule_blocked: str | None
+
+
+class PublicRescheduled(BaseModel):
+    booking: PublicBooking
+    token: str  # link for the new booking; the old one now shows the cancelled original
+
+
+class PublicAvailabilityQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    first_day: date
+    days: Annotated[int, Field(ge=1, le=7)] = 7
+
+
+class ManageLinkView(BaseModel):
+    url: str
+    expires_at: datetime

@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from lumini.auth import build_identity_verifier
 from lumini.booking.google_calendar import build_calendar
+from lumini.booking.public_router import router as self_service_router
 from lumini.booking.router import BOOKING_ERRORS, booking_error_handler
 from lumini.booking.router import router as booking_router
 from lumini.catalog.router import admin_router, public_router
@@ -80,6 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
     app.include_router(admin_router)
     app.include_router(booking_router)
+    app.include_router(self_service_router)
     app.include_router(public_router)
 
     @app.get("/health/live", response_model=Liveness, tags=["health"])

@@ -2,9 +2,9 @@
 
 import { useId, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 
-import { decodeSlots } from "@/lib/admin/api";
+import { decodeManageLink, decodeSlots } from "@/lib/admin/api";
 import { amount } from "@/lib/admin/forms";
-import type { Booking, BookingScope, BookingStatus, Mutation, Query } from "@/lib/admin/types";
+import type { Booking, BookingScope, BookingStatus, Command, Mutation, Query } from "@/lib/admin/types";
 
 import { clinicDay, focus, formatDate, formatDay, formatMoney, formatTime, rescueFocus, ui } from "./ui";
 
@@ -35,10 +35,11 @@ type Props = {
   onScope: (scope: BookingScope) => void;
   mutate: Mutation;
   query: Query;
+  command: Command;
   busy: boolean;
 };
 
-export function BookingsSection({ bookings, scope, onScope, mutate, query, busy }: Props) {
+export function BookingsSection({ bookings, scope, onScope, mutate, query, command, busy }: Props) {
   const heading = useRef<HTMLHeadingElement>(null);
   const groups =
     scope === "history"
@@ -111,6 +112,7 @@ export function BookingsSection({ bookings, scope, onScope, mutate, query, busy 
                     booking={item}
                     mutate={mutate}
                     query={query}
+                    command={command}
                     busy={busy}
                     sectionHeading={heading}
                   />
@@ -127,12 +129,14 @@ function BookingCard({
   booking,
   mutate,
   query,
+  command,
   busy,
   sectionHeading,
 }: {
   booking: Booking;
   mutate: Mutation;
   query: Query;
+  command: Command;
   busy: boolean;
   sectionHeading: RefObject<HTMLHeadingElement | null>;
 }) {
@@ -213,6 +217,9 @@ function BookingCard({
           )}
           {booking.status === "confirmed" && (
             <RescheduleForm booking={booking} busy={busy} query={query} act={act} />
+          )}
+          {(booking.status === "held" || booking.status === "confirmed") && (
+            <ManageLink path={`${path}/manage-link`} busy={busy} command={command} />
           )}
           <details>
             <summary className={ui.summary}>
@@ -404,6 +411,61 @@ function RescheduleForm({
             </div>
           </form>
         ))}
+    </details>
+  );
+}
+
+function ManageLink({ path, busy, command }: { path: string; busy: boolean; command: Command }) {
+  const id = useId();
+  const [link, setLink] = useState<{ url: string; expires_at: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link.url);
+      setCopied(true);
+    } catch {
+      setCopied(false); // clipboard blocked: the field stays selectable
+    }
+  }
+
+  return (
+    <details>
+      <summary className={ui.summary}>Link de autoatendimento para a cliente</summary>
+      <p className={ui.hint}>
+        A cliente vê a reserva e, com mais de 24 horas de antecedência, cancela ou reagenda uma vez
+        sem falar com a equipe. O link é pessoal: envie só para ela, pela conversa da clínica.
+      </p>
+      {link ? (
+        <div className="mt-3 flex flex-col gap-2">
+          <label htmlFor={`${id}-url`} className={ui.label}>
+            Link (vale até {formatDate(link.expires_at)})
+          </label>
+          <input
+            id={`${id}-url`}
+            readOnly
+            value={link.url}
+            onFocus={(event) => event.currentTarget.select()}
+            className={ui.input}
+          />
+          <div className="flex items-center gap-3">
+            <button type="button" className={ui.secondary} onClick={() => void copy()}>
+              Copiar link
+            </button>
+            <span role="status" className={ui.hint}>{copied ? "Copiado." : ""}</span>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className={`${ui.secondary} mt-3`}
+          disabled={busy}
+          onClick={() => void command(path, {}, decodeManageLink).then((found) => found && setLink(found))}
+        >
+          Gerar link
+        </button>
+      )}
     </details>
   );
 }

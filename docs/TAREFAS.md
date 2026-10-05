@@ -16,8 +16,8 @@ Atualizar após cada tarefa concluída/bloqueada e apontar detalhes em arquivos 
 | T08a | Núcleo de reservas (estados, trava, sinal, expiração, cancelamento, reagendamento, outbox) | Concluída (real local; calendário fake) | Migração 0003; 130 unitários + 91 integrações (33 de fluxo, 3 de concorrência real com commits); ADR-013 |
 | T08b | API administrativa e painel de reservas/agenda | Concluída (real local; calendário fake) | `VALIDACAO-003.md`: 152 unitários + 119 integrações; E2E 26/26 no Chrome, CSP 0; ADR-014; corrigida leitura desatualizada no núcleo |
 | T08c | Worker (Celery beat), adaptador Google Calendar e reconciliação | Concluída (real local; Google simulado) | `VALIDACAO-004.md`: 194 unitários + 127 integrações; worker real com beat executou o tick; ADR-015 |
-| T08d | Autoatendimento por link seguro (cancelar/reagendar) | Próxima | Token assinado com expiração; regras de 24h já no domínio |
-| T09 | PoC Evolution e modo humano | Dependente de instância de teste | Provar origem das mensagens; invalidar respostas pendentes; sem número real por enquanto |
+| T08d | Autoatendimento por link seguro (cancelar/reagendar) | Concluída (real local) | `VALIDACAO-005.md`: 211 unitários + 140 integrações (20 rodadas estáveis); E2E cliente 18/18 e painel 26/26; ADR-016; corrigido deadlock intermitente da T08a |
+| T09 | PoC Evolution e modo humano | Próxima (sem instância: simulada) | Provar origem das mensagens; invalidar respostas pendentes; sem número real por enquanto |
 | T10 | IA, experiência pública e piloto | Planejada | Seguir fases 4–6 do plano e seus gates |
 
 ## 2026-10-01 — T01
@@ -95,3 +95,11 @@ Evidência em `VALIDACAO-003.md`. Real local: API + PostgreSQL + painel no Chrom
 Implementado: `booking/google_calendar.py` (REST v3, conta de serviço, `requests` em threads, classificação de falhas sem texto do Google, upsert PUT/POST, delete idempotente), `booking/reconcile.py` (reenfileirar sincronizações travadas; reparar eventos da Lumini alterados no Google), `booking/jobs.py` (ciclos com engine própria e trava Redis), tarefas e beat em `worker.py`, `LUMINI_GOOGLE_CALENDAR_CREDENTIALS` validada em `settings.py`, `app.state.calendar` montado a partir dela. `tick` aceita rodar sem calendário (só expira e agenda mensagens). Identificação estrita dos eventos da Lumini. Outbox informa se gravou o job e aceita motivo na chave de deduplicação.
 
 Evidência em `VALIDACAO-004.md`. Real local: worker Celery + beat + PostgreSQL + Redis. Mock: Google (transporte HTTP falso, calendário em memória). Não iniciado: credencial real, envio de mensagens, alerta de sobreposição de terceiros em reserva confirmada.
+
+## 2026-10-05 — T08d autoatendimento por link (Claude)
+
+Usuário pediu para seguir até a etapa 10. Implementado: `booking/links.py` (token HMAC), `booking/public_router.py` (ver, horários, cancelar, reagendar com ator `client`), `ratelimit.py`, `POST /api/admin/bookings/{id}/manage-link`, configurações `LUMINI_MANAGE_LINK_SECRET`/`LUMINI_PUBLIC_SITE_URL`, regras de autoatendimento extraídas para funções únicas. Frontend: página `/reserva` (token no fragmento, CSP por nonce, `no-referrer`, `noindex`), botão “Link de autoatendimento” no painel, formatadores de horário compartilhados em `lib/clinic-time.ts`, origem da API compartilhada em `lib/api-origin.ts`.
+
+Defeitos encontrados e corrigidos: deadlock intermitente em reservas simultâneas (T08a; repetição da transação, regressão determinística + 20 rodadas verdes); página não reagia a outro link aberto na mesma aba; dia da semana com maiúsculas em todas as palavras.
+
+Evidência em `VALIDACAO-005.md`. Real local: API pública + PostgreSQL + Redis + página no Chrome. Mock: calendário em memória, identidade do painel. Não iniciado: envio automático do link (T09).

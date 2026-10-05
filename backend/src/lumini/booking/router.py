@@ -4,9 +4,10 @@ Refusals answer `{detail, code}`: `detail` is a fixed English message, `code` a 
 the panel translates. Calendar and database failures never echo provider or driver text.
 """
 
+import uuid
 from collections.abc import Awaitable
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -23,6 +24,7 @@ from lumini.booking.calendar import (
     CalendarRejected,
     CalendarUnavailable,
 )
+from lumini.booking.links import manage_url
 from lumini.booking.schemas import (
     AvailabilityQuery,
     AvailabilityView,
@@ -31,11 +33,14 @@ from lumini.booking.schemas import (
     BookingVersion,
     ConflictResolution,
     DepositConfirmation,
+    ManageLinkView,
     ScheduleUpdate,
     ScheduleView,
     StaffReschedule,
 )
 from lumini.deps import NO_STORE, get_calendar, get_now, get_session, no_store
+from lumini.models import Booking, BookingEvent
+from lumini.settings import Settings
 
 Admin = Annotated[AdminPrincipal, Depends(require_admin)]
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -46,6 +51,10 @@ Calendar = Annotated[CalendarAdapter, Depends(get_calendar)]
 def _status(error: booking.BookingError) -> int:
     if isinstance(error, booking.BookingNotFound):
         return 404
+    if error.code == "rate_limited":
+        return 429
+    if error.code in ("self_service_unavailable", "manage_link_not_configured"):
+        return 503
     if error.code == "forbidden":
         return 403
     if isinstance(error, booking.InvalidBookingRequest):
@@ -215,3 +224,38 @@ async def reschedule(
         )
     )
     return await _guard(queries.get_booking(session, result.id))
+
+
+@router.post("/bookings/{booking_id}/manage-link", response_model=ManageLinkView)
+async def manage_link(
+    request: Request, actor: Admin, session: Session, now: Now, booking_id: UUID
+) -> ManageLinkView:
+    """Self-service link for staff to send by hand until the WhatsApp channel sends it."""
+    settings = cast(Settings, request.app.state.settings)
+
+    async def issue() -> ManageLinkView:
+        async with session.begin():
+            item = await session.get(Booking, booking_id, with_for_update=True)
+            if item is None:
+                raise booking.BookingNotFound("Booking not found")
+            if item.status not in ("held", "confirmed") or item.starts_at <= now:
+                raise booking.BookingConflict("Booking is not open for changes", "invalid_state")
+            url = manage_url(settings, item)
+            if url is None:
+                raise booking.BookingError(
+                    "Self-service links are not configured", "manage_link_not_configured"
+                )
+            session.add(
+                BookingEvent(
+                    id=uuid.uuid4(),
+                    booking_id=item.id,
+                    action="manage_link_issued",
+                    from_status=item.status,
+                    to_status=item.status,
+                    actor_type="staff",
+                    actor_subject=actor.subject,
+                )
+            )
+            return ManageLinkView(url=url, expires_at=item.starts_at)
+
+    return await _guard(issue())

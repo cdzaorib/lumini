@@ -8,7 +8,7 @@ database transaction. Errors carry fixed messages only.
 
 import re
 import uuid
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -16,7 +16,7 @@ from typing import Literal
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lumini.booking.availability import Interval, WeeklyRule, free_slots, working_windows
@@ -44,6 +44,8 @@ _CENTS = Decimal("0.01")
 _PHONE = re.compile(r"\+[1-9]\d{7,14}\Z")
 _EXCLUSION_VIOLATION = "23P01"
 _UNIQUE_VIOLATION = "23505"
+_RETRYABLE = {"40P01", "40001"}  # deadlock detected, serialization failure
+WRITE_ATTEMPTS = 3
 
 ActorType = Literal["system", "staff", "client"]
 
@@ -123,8 +125,29 @@ class _SlotContext:
     deposit: Decimal
 
 
-def _sqlstate(error: IntegrityError) -> str | None:
+def _sqlstate(error: DBAPIError) -> str | None:
     return getattr(error.orig, "sqlstate", None)
+
+
+async def _retrying[T](operation: Callable[[], Awaitable[T]]) -> T:
+    """Run a write transaction again when PostgreSQL aborted it to break a deadlock.
+
+    Concurrent inserts for the same time wait on each other in the exclusion constraint and
+    PostgreSQL may abort one of them (40P01). The retry then sees the winner and answers
+    SlotUnavailable, or succeeds if the winner rolled back. Constraint violations are final.
+    """
+    attempt = 1
+    while True:
+        try:
+            return await operation()
+        except DBAPIError as error:
+            if (
+                isinstance(error, IntegrityError)
+                or _sqlstate(error) not in _RETRYABLE
+                or attempt >= WRITE_ATTEMPTS
+            ):
+                raise
+            attempt += 1
 
 
 def _record(
@@ -379,7 +402,7 @@ async def create_hold(
     if await _external_conflict(calendar, context.calendar_id, blocked):
         raise SlotUnavailable("Requested time is no longer available")
 
-    try:
+    async def write() -> Booking:
         async with session.begin():
             # Revalidate inside the write transaction: catalog or agenda may have changed.
             context = await _slot_context(
@@ -406,6 +429,10 @@ async def create_hold(
             await session.flush()
             _record(session, booking, "hold_requested", None, actor)
             await enqueue_calendar_sync(session, booking, now)
+        return booking
+
+    try:
+        booking = await _retrying(write)
     except IntegrityError as error:
         if _sqlstate(error) == _EXCLUSION_VIOLATION:
             raise SlotUnavailable("Requested time is no longer available") from None
@@ -658,12 +685,9 @@ async def cancel_booking(
         if booking.status not in ACTIVE_BOOKING_STATUSES:
             raise BookingConflict("Booking is no longer active", "invalid_state")
         if actor.type == "client":
-            allowed = booking.status == "held" or (
-                booking.status == "confirmed"
-                and booking.starts_at - now > policy.self_service_cutoff
-            )
-            if not allowed:
-                raise RequiresHuman("This cancellation is handled by the clinic", "within_24h")
+            refusal = client_cancel_refusal(booking, now, policy)
+            if refusal is not None:
+                raise RequiresHuman("This cancellation is handled by the clinic", refusal)
         elif actor.type != "staff" or not actor.subject:
             raise BookingConflict("Not allowed")
         _transition(
@@ -679,14 +703,39 @@ async def cancel_booking(
     return booking
 
 
+def client_cancel_refusal(booking: Booking, now: datetime, policy: BookingPolicy) -> str | None:
+    """Why a client may not cancel on their own (None = allowed). Shared with the client page."""
+    if booking.status not in ACTIVE_BOOKING_STATUSES:
+        return "closed"
+    if booking.status == "held":
+        return None  # unpaid: always free to give the time back
+    if booking.status != "confirmed":
+        return "in_progress"  # calendar placement, deposit confirmation or conflict: the clinic
+    if booking.starts_at - now <= policy.self_service_cutoff:
+        return "within_24h"
+    return None
+
+
+def client_reschedule_refusal(booking: Booking, now: datetime, policy: BookingPolicy) -> str | None:
+    """Why a client may not reschedule on their own (None = allowed)."""
+    if booking.status not in ACTIVE_BOOKING_STATUSES:
+        return "closed"
+    if booking.status != "confirmed":
+        return "not_confirmed"
+    if booking.reschedule_count > 0:
+        return "second_reschedule"
+    if booking.starts_at - now <= policy.self_service_cutoff:
+        return "within_24h"
+    return None
+
+
 def _check_reschedule(booking: Booking, actor: Actor, now: datetime, policy: BookingPolicy) -> None:
     if booking.status != "confirmed":
         raise BookingConflict("Only confirmed bookings can be rescheduled", "invalid_state")
     if actor.type == "client":
-        if booking.reschedule_count > 0:
-            raise RequiresHuman("A second reschedule is decided by the clinic", "second_reschedule")
-        if booking.starts_at - now <= policy.self_service_cutoff:
-            raise RequiresHuman("Changes within 24 hours are handled by the clinic", "within_24h")
+        refusal = client_reschedule_refusal(booking, now, policy)
+        if refusal is not None:
+            raise RequiresHuman("This change is handled by the clinic", refusal)
     elif actor.type != "staff" or not actor.subject:
         raise BookingConflict("Not allowed")
 
@@ -727,7 +776,7 @@ async def reschedule_booking(
     if await _external_conflict(calendar, context.calendar_id, blocked):
         raise SlotUnavailable("Requested time is no longer available")
 
-    try:
+    async def write() -> Booking:
         async with session.begin():
             original = await _locked(session, booking_id)
             _check_version(original, expected_version)
@@ -766,6 +815,10 @@ async def reschedule_booking(
             await session.flush()
             _record(session, replacement, "rescheduled_from", None, actor)
             await enqueue_calendar_sync(session, replacement, now)
+        return replacement
+
+    try:
+        replacement = await _retrying(write)
     except IntegrityError as error:
         if _sqlstate(error) == _EXCLUSION_VIOLATION:
             raise SlotUnavailable("Requested time is no longer available") from None
