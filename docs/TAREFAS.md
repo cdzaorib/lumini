@@ -150,3 +150,7 @@ Evidência: 12 unitários + 4 integrações novos; E2E conteúdo 12/12, site 17/
 Migração `0007_attendance`: comparecimento (`attended`/`no_show`, só reservas confirmadas e depois do início, com versão e auditoria); reserva com comparecimento não pode ser cancelada nem reagendada; recomendações pós-procedimento não vão para quem faltou; `booking_events.created_at` passou a `clock_timestamp()` (com `now()`, eventos gravados na mesma transação empatavam e o histórico saía fora de ordem). Origem da reserva pelo canal (WhatsApp, chat do site, reagendamento). Métricas do plano (§11) em `GET /api/admin/metrics?days=`: pedidos de contato, reservas, sinais, atendimentos, comparecimentos, faltas, cancelamentos, reagendamentos, expirações, procura por procedimento, origem, conversas passadas à equipe. Painel: aba “Resumo” (indicadores e tabelas, sem cores carregando significado), botões “Compareceu/Faltou” e “Histórico” em cada reserva.
 
 Evidência: 4 integrações novas (188 no total, 2 rodadas); E2E resumo 10/10, painel 26/26, cliente 18/18.
+
+## 2026-10-05 — T11c aviso de sobreposição no Google (Claude)
+
+Migração `0008_calendar_overlap`. A reconciliação (a cada 15 min) marca reservas aguardando sinal ou confirmadas que têm outro compromisso no Google no mesmo horário, registra no histórico, desmarca quando o compromisso sai e não altera a reserva (ADR-015 atualizada). Painel mostra o aviso no cartão da reserva. Evidência: integração nova (reconciliação 9/9); sem E2E de navegador (a reconciliação roda no worker, não no cenário E2E).

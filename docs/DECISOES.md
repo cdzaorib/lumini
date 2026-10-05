@@ -78,7 +78,7 @@ Mutações do catálogo ocorrem em uma transação com `pg_advisory_xact_lock` d
 - **Identificação estrita** dos eventos da Lumini: `lumini` + 32 hex exatos. Um evento manual cujo id apenas comece com `lumini` continua contando como ocupado.
 - **Worker**: Celery beat embutido; tick a cada 60 s e reconciliação a cada 15 min, cada execução com engine/sessão novas e trava Redis não bloqueante (TTL 5 min). Sem credencial do Google, o tick só expira e agenda mensagens; jobs de calendário aguardam.
 - **Reconciliação**: (1) reserva cujo estado no calendário nunca convergiu (ex.: `confirming` depois que o job desistiu) ganha novo job, no máximo um por hora; (2) a cada 15 min, os eventos da Lumini no horizonte de 60 dias são comparados com as reservas `held`/`confirmed` e encerradas: evento apagado ou movido no Google é recolocado; evento de reserva encerrada que reapareceu é removido de novo. O PostgreSQL decide; cada reparo é auditado (`calendar_drift`, sem mudar status/versão). Reservas em andamento e em conflito ficam com o job ou com a equipe.
-- **Fica para depois**: compromisso de terceiros criado no Google **por cima** de uma reserva já confirmada ainda não gera alerta no painel; precisa de decisão de produto (alertar sem mudar status).
+- **Compromisso de terceiros sobre reserva ativa** (T11c, leitura conservadora): a reconciliação marca `calendar_overlap_at`, registra `calendar_overlap`/`calendar_overlap_cleared` no histórico e o painel mostra o aviso; a reserva **não** muda de estado nem é cancelada. Se a clínica preferir outra conduta (ex.: mensagem automática à cliente), é decisão de produto.
 
 ## ADR-016 — Autoatendimento por link assinado (T08d)
 

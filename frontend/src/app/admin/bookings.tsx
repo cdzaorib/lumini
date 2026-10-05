@@ -39,6 +39,8 @@ const ACTIONS: Record<string, string> = {
   conflict_released: "Horário liberado",
   conflict_retry: "Nova tentativa na agenda",
   calendar_drift: "Agenda corrigida (alteração manual no Google)",
+  calendar_overlap: "Outro compromisso no Google neste horário",
+  calendar_overlap_cleared: "Compromisso sobreposto saiu do Google",
   manage_link_issued: "Link gerado pela equipe",
   attended: "Compareceu",
   no_show: "Faltou",
@@ -225,6 +227,12 @@ function BookingCard({
         </span>
       </div>
 
+      {booking.calendar_overlap_at && active && (
+        <p role="note" className="mt-4 border-l-4 border-lumini-rose bg-lumini-white px-4 py-3 text-sm">
+          Atenção: há outro compromisso no Google Agenda neste horário (visto em {formatDate(booking.calendar_overlap_at)}).
+          A reserva continua valendo; confira com a profissional e, se for o caso, reagende ou cancele por aqui.
+        </p>
+      )}
       <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
         <Detail term="Cliente">{booking.contact.name}</Detail>
         <Detail term="Telefone">{booking.contact.phone}</Detail>

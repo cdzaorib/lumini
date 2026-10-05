@@ -220,3 +220,42 @@ async def test_periodic_jobs_use_their_own_session_and_skip_while_locked(
         integration_settings, calendar=committed.calendar, clock=lambda: NOW
     )
     assert reconciled is not None and reconciled.repaired == 0 and reconciled.calendars >= 1
+
+
+async def test_other_commitments_over_live_bookings_are_flagged_not_changed(world: World) -> None:
+    confirmed_booking = await confirmed(world, local(TUESDAY, 10))
+    holding = await held(world, local(WEDNESDAY, 10))
+    closed = await held(world, local(WEDNESDAY, 14))
+    await cancel_booking(
+        world.session, closed.id, actor=STAFF, expected_version=closed.version, now=NOW
+    )
+    await deliver_due(world.session, calendar=world.calendar, notifier=None, now=NOW)
+    for start, end in (
+        (local(TUESDAY, 10, 30), local(TUESDAY, 11, 30)),  # over the confirmed appointment
+        (local(WEDNESDAY, 9), local(WEDNESDAY, 10, 15)),  # over the unpaid hold
+        (local(WEDNESDAY, 14), local(WEDNESDAY, 15)),  # over a cancelled booking: irrelevant
+    ):
+        world.calendar.add_manual(CAL, start, end)
+
+    report = await reconcile_calendars(world.session, world.calendar, now=NOW)
+    assert (report.overlaps_flagged, report.overlaps_cleared, report.repaired) == (2, 0, 0)
+    for item in (confirmed_booking, holding):
+        current = await reload(world, item.id)
+        assert current.calendar_overlap_at == NOW and current.status == item.status
+    assert (await reload(world, closed.id)).calendar_overlap_at is None
+    again = await reconcile_calendars(world.session, world.calendar, now=NOW)
+    assert again.overlaps_flagged == 0  # flagged once
+
+    world.calendar.manual.clear()
+    cleared = await reconcile_calendars(world.session, world.calendar, now=NOW)
+    assert cleared.overlaps_cleared == 2
+    assert (await reload(world, confirmed_booking.id)).calendar_overlap_at is None
+    async with world.session.begin():
+        actions = list(
+            await world.session.scalars(
+                select(BookingEvent.action)
+                .where(BookingEvent.booking_id == confirmed_booking.id)
+                .order_by(BookingEvent.created_at)
+            )
+        )
+    assert actions[-2:] == ["calendar_overlap", "calendar_overlap_cleared"]

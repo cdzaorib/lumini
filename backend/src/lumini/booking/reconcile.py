@@ -69,6 +69,8 @@ class ReconcileReport:
     calendars: int = 0
     unavailable: int = 0
     repaired: int = 0
+    overlaps_flagged: int = 0
+    overlaps_cleared: int = 0
 
 
 def _drifted(booking: Booking, shown: Interval | None) -> bool:
@@ -77,6 +79,20 @@ def _drifted(booking: Booking, shown: Interval | None) -> bool:
     if booking.status in _CLOSED and booking.calendar_status == "deleted":
         return shown is not None  # restored in Google after we removed it
     return False
+
+
+def _event(session: AsyncSession, booking: Booking, action: str) -> None:
+    session.add(
+        BookingEvent(
+            id=uuid.uuid4(),
+            booking_id=booking.id,
+            action=action,
+            from_status=booking.status,
+            to_status=booking.status,
+            actor_type="system",
+            actor_subject=None,
+        )
+    )
 
 
 async def _repair(
@@ -128,10 +144,13 @@ async def reconcile_calendars(
             continue
         report.calendars += 1
         shown: dict[uuid.UUID, Interval] = {}
+        others: list[Interval] = []
         for item in busy:
             booking_id = booking_id_of(item.event_id)
             if booking_id is not None:
                 shown[booking_id] = Interval(item.start, item.end)
+            else:
+                others.append(Interval(item.start, item.end))
         async with session.begin():
             candidates = await session.scalars(
                 select(Booking)
@@ -141,19 +160,37 @@ async def reconcile_calendars(
                     Booking.ends_at > window.start,
                     Booking.status.in_(("held", "confirmed", *_CLOSED)),
                 )
+                .with_for_update(skip_locked=True)  # a row being changed is checked next run
                 .execution_options(populate_existing=True)
             )
+            rows = list(candidates)
             drifted = [
                 (booking.id, booking.version)
-                for booking in candidates
+                for booking in rows
                 if _drifted(booking, shown.get(booking.id))
             ]
+            # Someone booked something else over a live reservation directly in Google: tell
+            # the team (panel + history). The reservation itself is not changed (ADR-015).
+            for booking in rows:
+                if booking.status not in ("held", "confirmed"):
+                    continue
+                appointment = Interval(booking.starts_at, booking.ends_at)
+                overlapping = any(appointment.overlaps(other) for other in others)
+                if overlapping and booking.calendar_overlap_at is None:
+                    booking.calendar_overlap_at = now
+                    _event(session, booking, "calendar_overlap")
+                    report.overlaps_flagged += 1
+                elif not overlapping and booking.calendar_overlap_at is not None:
+                    booking.calendar_overlap_at = None
+                    _event(session, booking, "calendar_overlap_cleared")
+                    report.overlaps_cleared += 1
         for booking_id, version in drifted:
             report.repaired += await _repair(session, booking_id, version, now)
-    if report.repaired or report.unavailable:
+    if report.repaired or report.unavailable or report.overlaps_flagged:
         logger.warning(
-            "calendar reconcile: %d repaired, %d calendars unavailable",
+            "calendar reconcile: %d repaired, %d calendars unavailable, %d overlaps flagged",
             report.repaired,
             report.unavailable,
+            report.overlaps_flagged,
         )
     return report

@@ -77,6 +77,7 @@ export type Booking = {
   closed_reason: string | null;
   attendance: "attended" | "no_show" | null;
   origin: "whatsapp" | "site" | "reschedule" | "other";
+  calendar_overlap_at: string | null;
 };
 
 export type BookingEvent = { action: string; from_status: string | null; to_status: string; actor: "system" | "staff" | "client"; at: string };

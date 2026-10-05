@@ -62,6 +62,7 @@ def _view(row: tuple[Booking, str, str, str, str]) -> BookingAdminView:
         created_at=booking.created_at,
         attendance=booking.attendance,
         origin=origin_of(booking.idempotency_key),
+        calendar_overlap_at=booking.calendar_overlap_at,
     )
 
 

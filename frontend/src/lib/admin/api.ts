@@ -183,6 +183,7 @@ export function decodeBookings(value: unknown): Booking[] {
       rescheduled_from_id: nullable(data.rescheduled_from_id), closed_reason: nullable(data.closed_reason),
       attendance: data.attendance === null || data.attendance === undefined ? null : oneOf(data.attendance, ["attended", "no_show"] as const),
       origin: oneOf(data.origin ?? "other", ["whatsapp", "site", "reschedule", "other"] as const),
+      calendar_overlap_at: data.calendar_overlap_at === undefined ? null : nullable(data.calendar_overlap_at),
     };
   });
 }

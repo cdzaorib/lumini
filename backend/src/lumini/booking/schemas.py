@@ -131,6 +131,7 @@ class BookingAdminView(BaseModel):
     created_at: datetime
     attendance: str | None = None
     origin: str = "other"  # whatsapp | site | reschedule | other
+    calendar_overlap_at: datetime | None = None
 
 
 class PublicBooking(BaseModel):
