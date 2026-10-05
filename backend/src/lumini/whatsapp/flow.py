@@ -40,6 +40,7 @@ from lumini.booking.service import (
 )
 from lumini.catalog.schemas import PublicService
 from lumini.catalog.service import list_public_services
+from lumini.leads.service import brazilian_phone
 from lumini.models import Service
 from lumini.whatsapp import texts
 
@@ -419,6 +420,20 @@ async def _name(ctx: Context, state: dict[str, Any], text: str) -> Reply | None:
     name = " ".join(text.split())
     if not 2 <= len(name) <= 120 or "<" in name or ">" in name or name.isdigit():
         return Reply(texts.BAD_NAME, state)
+    if ctx.phone is None:  # web chat: WhatsApp is where the reservation notices go
+        return Reply(texts.ASK_PHONE, {**state, "step": "phone", "name": name})
+    return await _summary(ctx, {**state, "name": name})
+
+
+async def _phone(ctx: Context, state: dict[str, Any], text: str) -> Reply | None:
+    try:
+        phone = brazilian_phone(text)
+    except ValueError:
+        return Reply(texts.BAD_PHONE, state)
+    return await _summary(ctx, {**state, "phone": phone})
+
+
+async def _summary(ctx: Context, state: dict[str, Any]) -> Reply:
     item = await ctx.service(state.get("service_id"))
     if item is None:
         return Reply(texts.MENU, {"step": "menu"})
@@ -433,7 +448,7 @@ async def _name(ctx: Context, state: dict[str, Any], text: str) -> Reply | None:
         f"para o pagamento do sinal de {texts.money(item.deposit_brl)}.\n"
         + texts.numbered(["Confirmar reserva", "Escolher outro horário"])
     )
-    return Reply(summary, {**state, "step": "confirm", "name": name})
+    return Reply(summary, {**state, "step": "confirm"})
 
 
 async def _confirm(ctx: Context, state: dict[str, Any], text: str) -> Reply | None:
@@ -442,8 +457,9 @@ async def _confirm(ctx: Context, state: dict[str, Any], text: str) -> Reply | No
         return None
     if picked == 2:
         return await _times(ctx, state, str(state["day"]))
-    if ctx.calendar is None or ctx.phone is None:
-        return _handoff(texts.HANDOFF, "no_phone" if ctx.phone is None else "agenda_unavailable")
+    phone = ctx.phone or state.get("phone")
+    if ctx.calendar is None or not isinstance(phone, str):
+        return _handoff(texts.HANDOFF, "no_phone" if phone is None else "agenda_unavailable")
     service_id, professional_id, slot = state["service_id"], state["professional_id"], state["slot"]
     # Same conversation + same choice = same key: repeating "1" never creates a second hold.
     raw = f"{ctx.conversation_id}:{service_id}:{professional_id}:{slot}"
@@ -453,7 +469,7 @@ async def _confirm(ctx: Context, state: dict[str, Any], text: str) -> Reply | No
         professional_id=uuid.UUID(str(professional_id)),
         starts_at=datetime.fromisoformat(str(slot)),
         contact_name=str(state.get("name", "")),
-        contact_phone=ctx.phone,
+        contact_phone=phone,
     )
     try:
         await create_hold(ctx.session, ctx.calendar, request, now=ctx.now, policy=DEFAULT_POLICY)
@@ -572,6 +588,7 @@ _STEPS = {
     "days": _pick_day,
     "times": _pick_time,
     "name": _name,
+    "phone": _phone,
     "confirm": _confirm,
     "clarify": _clarify,
 }

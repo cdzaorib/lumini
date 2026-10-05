@@ -125,3 +125,11 @@ Real local: webhook + PostgreSQL + worker + painel no Chrome. Mock: Evolution (r
 Landing (`/`) a partir do catálogo publicado: hero do plano, áreas, procedimentos com preço só pela regra (valor, “a partir de” ou após avaliação), como funciona, profissionais verificadas com registro (Cofen), políticas de agendamento geradas das regras do sistema, formulário de contato; página por procedimento (`/procedimentos/[slug]`); privacidade e termos como **rascunhos** (sem indexação, aviso visível); `robots`/`sitemap`/`X-Robots-Tag` fechados até `LUMINI_SITE_PUBLIC=true`; CSP por nonce em todas as páginas; conteúdo da clínica em `frontend/src/content/site.ts` com pendências visíveis só na prévia (`LUMINI_SITE_STAGE=production` oculta). Nada inventado: endereço, horários, WhatsApp, diferenciais, perguntas frequentes, fotos e depoimentos aguardam a clínica. Sem analytics/pixel.
 
 Evidência: E2E no Chrome 17/17 (site + formulário + aba Contatos), lint e typecheck verdes.
+
+## 2026-10-05 — T10d chat no site (Claude)
+
+`lumini/webchat/`: sessão por token aleatório (servidor guarda só o hash), mesmo fluxo do WhatsApp (e IA, se ligada), passo de WhatsApp com aviso de uso antes de reservar, pedidos de equipe/saúde encaminhados ao formulário (ninguém acompanha o chat ao vivo), nenhum texto da pessoa gravado, limites por endereço e por sessão, sessões apagadas um dia após o início. Frontend: componente de conversa com respostas rápidas, página `/atendimento` (com formulário de contato) e botão flutuante na landing; ícone do site.
+
+Defeitos encontrados: token inválido ainda abria sessão de banco (checagem virou a primeira dependência); limpeza de sessões não apagava porque atribuir o mesmo valor a `updated_at` deixa o banco aplicar o próprio relógio (passou a usar `created_at`); orientação “Fale com a clínica nesta página” sem formulário em `/atendimento`; `favicon` 404.
+
+Evidência: 7 integrações novas; E2E chat 16/16 e regressão site 17/17, painel 26/26, cliente 18/18, integrações 12/12.

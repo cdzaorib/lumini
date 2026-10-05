@@ -68,9 +68,15 @@ NO_SLOTS = (
 SLOT_TAKEN = "Esse horário acabou de ser ocupado. Escolha outro, por favor:"
 ASK_NAME = "Para reservar, qual nome devo colocar na reserva?"
 BAD_NAME = "Envie só o nome, em texto simples (até 120 letras)."
+ASK_PHONE = (
+    "Qual é o seu WhatsApp com DDD? A confirmação da reserva, as orientações do sinal e os "
+    "lembretes chegam por lá. Usamos esse número só para este atendimento (veja a privacidade "
+    "no site)."
+)
+BAD_PHONE = "Envie o número com DDD, por exemplo (21) 9XXXX-XXXX."
 HOLD_REQUESTED = (
-    "Estou reservando seu horário. Em instantes você recebe a confirmação da reserva e as "
-    "orientações sobre o sinal."
+    "Estou reservando seu horário. Em instantes você recebe pelo WhatsApp a confirmação da "
+    "reserva e as orientações sobre o sinal."
 )
 
 

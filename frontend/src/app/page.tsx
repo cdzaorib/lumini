@@ -6,6 +6,7 @@ import { site } from "@/content/site";
 import { readApiOrigin } from "@/lib/api-origin";
 import { getCatalog, priceText, professionalsOf, type PublicService } from "@/lib/public/catalog";
 
+import { ChatWidget } from "./_site/chat-widget";
 import { LeadForm } from "./_site/lead-form";
 import { Pending, Section, SiteFooter, SiteHeader, container, primaryLink, secondaryLink } from "./_site/chrome";
 
@@ -72,7 +73,7 @@ export default async function HomePage() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link className={primaryLink} href="#contato">Quero ser contatada</Link>
-              <Link className={secondaryLink} href="#procedimentos">Ver procedimentos</Link>
+              <Link className={secondaryLink} href="/atendimento">Tirar dúvidas agora</Link>
             </div>
           </div>
           <div className="light-study" aria-hidden="true">
@@ -183,6 +184,7 @@ export default async function HomePage() {
         </Section>
       </main>
       <SiteFooter />
+      <ChatWidget apiOrigin={apiOrigin} />
     </>
   );
 }

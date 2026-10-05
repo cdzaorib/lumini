@@ -20,6 +20,7 @@ export function SiteHeader() {
           <Link className={`hover:text-lumini-rose ${focus}`} href="/#procedimentos">Procedimentos</Link>
           <Link className={`hover:text-lumini-rose ${focus}`} href="/#como-funciona">Como funciona</Link>
           <Link className={`hover:text-lumini-rose ${focus}`} href="/#politicas">Políticas</Link>
+          <Link className={`hover:text-lumini-rose ${focus}`} href="/atendimento">Atendimento</Link>
           <Link className={`font-medium text-lumini-rose ${focus}`} href="/#contato">Fale com a clínica</Link>
         </nav>
       </div>
