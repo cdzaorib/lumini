@@ -16,8 +16,10 @@ const nextConfig: NextConfig = {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()",
           },
-          // This foundation is an internal preview, including in production builds.
-          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+          // Closed to search engines until the launch gate (LUMINI_SITE_PUBLIC=true at build).
+          ...(process.env.LUMINI_SITE_PUBLIC === "true"
+            ? []
+            : [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" }]),
         ],
       },
     ];

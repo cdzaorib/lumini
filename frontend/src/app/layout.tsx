@@ -1,14 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+import { siteIndexable } from "@/content/site";
+
 export const metadata: Metadata = {
-  title: "Lumini — prévia interna",
-  description: "Prévia interna do novo espaço digital da Lumini Estética e Saúde.",
-  robots: {
-    index: false,
-    follow: false,
-    nocache: true,
-  },
+  title: "Lumini Estética e Saúde",
+  description: "Estética facial e corporal, emagrecimento saudável e saúde integrativa.",
+  // Search engines stay out until the launch gate (LUMINI_SITE_PUBLIC=true).
+  robots: siteIndexable() ? undefined : { index: false, follow: false, nocache: true },
 };
 
 export const viewport: Viewport = {

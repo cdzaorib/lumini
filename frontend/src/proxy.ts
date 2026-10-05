@@ -5,9 +5,10 @@ import { readApiOrigin } from "@/lib/api-origin";
 
 const GOOGLE_GSI = "https://accounts.google.com/gsi/";
 
-// Pages that hold a credential in memory get a per-request nonce CSP: injected markup cannot
-// run script or send the credential elsewhere. /admin keeps a Google ID token; /reserva keeps
-// the booking link token (read from the URL fragment, never sent to this server).
+// Every page gets a per-request nonce CSP (pages render dynamically for it): injected markup
+// cannot run script or send data elsewhere. /admin keeps a Google ID token; /reserva keeps the
+// booking link token (read from the URL fragment, never sent to this server); public pages post
+// the contact form to the API.
 export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const development = process.env.NODE_ENV === "development";
@@ -35,10 +36,24 @@ export function proxy(request: NextRequest) {
   requestHeaders.set("Content-Security-Policy", policy);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", policy);
-  response.headers.set("Cache-Control", "no-store");
-  response.headers.set("Referrer-Policy", "no-referrer");
-  response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  const private_ = admin || request.nextUrl.pathname === "/reserva";
+  if (private_) {
+    response.headers.set("Cache-Control", "no-store");
+    response.headers.set("Referrer-Policy", "no-referrer");
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
   return response;
 }
 
-export const config = { matcher: ["/admin/:path*", "/reserva"] };
+export const config = {
+  matcher: [
+    {
+      // Pages only: no static assets, images, metadata files or prefetches.
+      source: "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)",
+      missing: [
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
+  ],
+};

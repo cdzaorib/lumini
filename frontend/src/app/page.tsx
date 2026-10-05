@@ -1,39 +1,188 @@
-export default function HomePage() {
+import type { Metadata } from "next";
+import Link from "next/link";
+import { headers } from "next/headers";
+
+import { site } from "@/content/site";
+import { readApiOrigin } from "@/lib/api-origin";
+import { getCatalog, priceText, professionalsOf, type PublicService } from "@/lib/public/catalog";
+
+import { LeadForm } from "./_site/lead-form";
+import { Pending, Section, SiteFooter, SiteHeader, container, primaryLink, secondaryLink } from "./_site/chrome";
+
+export const metadata: Metadata = {
+  title: `${site.name} — ${site.region}`,
+  description:
+    "Estética facial e corporal, emagrecimento saudável e saúde integrativa. Tire suas dúvidas e agende sua avaliação.",
+};
+
+const STEPS = [
+  ["Conte o que você procura", "Pelo formulário ou pelo atendimento, você escolhe um procedimento ou conta seu objetivo."],
+  ["Tire suas dúvidas", "Explicamos o procedimento com informações aprovadas pelas profissionais. Questões de saúde vão direto para a profissional."],
+  ["Reserve o horário", "O horário escolhido fica reservado por 2 horas enquanto você paga o sinal."],
+  ["Confirmação pela clínica", "A equipe confere o sinal e confirma o agendamento. Você recebe tudo pelo WhatsApp."],
+] as const;
+
+const POLICIES = [
+  "O horário fica reservado por 2 horas para o pagamento do sinal; sem confirmação nesse prazo, ele é liberado.",
+  "O sinal é conferido pela equipe da clínica antes de confirmar o agendamento.",
+  "Com mais de 24 horas de antecedência, você mesma cancela ou reagenda pelo link enviado no WhatsApp.",
+  "Com 24 horas ou menos, alterações são combinadas diretamente com a clínica.",
+  "O primeiro reagendamento mantém o sinal; um segundo reagendamento, exceções e reembolsos são decididos pela clínica.",
+  "Horários com menos de 3 horas de antecedência são combinados diretamente com a equipe.",
+];
+
+function ServiceCard({ service }: { service: PublicService }) {
   return (
-    <div className="preview-shell">
-      <header className="site-header">
-        <div className="brand">
-          <span className="brand-name">lumini</span>
-          <span className="brand-description">Estética e Saúde</span>
-        </div>
-        <p className="preview-label">Prévia interna</p>
-      </header>
+    <li className="flex flex-col border border-lumini-gold/40 bg-lumini-white/70 p-6">
+      <p className="text-xs uppercase tracking-[0.13em] text-lumini-muted">{service.category}</p>
+      <h3 className="mt-2 font-display text-2xl">{service.name}</h3>
+      <p className="mt-3 line-clamp-3 flex-1 leading-relaxed text-lumini-muted">{service.description}</p>
+      <p className="mt-4 text-sm">
+        {priceText(service)} · cerca de {service.duration_minutes} min
+        {service.booking_mode === "evaluation" ? " · começa com avaliação" : ""}
+      </p>
+      <Link className="mt-4 text-sm font-medium text-lumini-rose underline" href={`/procedimentos/${service.slug}`}>
+        Saiba mais sobre {service.name}
+      </Link>
+    </li>
+  );
+}
 
-      <main id="conteudo" className="preparation" tabIndex={-1}>
-        <div className="preparation-copy">
-          <p className="eyebrow">Um novo capítulo da Lumini</p>
-          <h1>Estamos preparando um novo espaço para cuidar de você.</h1>
-          <p className="description">
-            Nossa nova experiência digital está em construção.
-            Enquanto isso, você pode visitar o site atual da clínica.
+export default async function HomePage() {
+  await headers(); // rendered per request so the CSP nonce reaches every script
+  const catalog = await getCatalog();
+  const apiOrigin = readApiOrigin(process.env.NEXT_PUBLIC_API_BASE_URL, process.env.NODE_ENV);
+  const services = catalog ?? [];
+  const categories = [...new Set(services.map((service) => service.category))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const professionals = professionalsOf(services);
+
+  return (
+    <>
+      <SiteHeader />
+      <main id="conteudo" tabIndex={-1} className="focus:outline-none">
+        <section className={`${container} grid items-center gap-12 py-16 md:grid-cols-[1.3fr_1fr] md:py-24`}>
+          <div>
+            <p className="mb-6 text-xs uppercase tracking-[0.13em] text-lumini-muted">{site.region}</p>
+            <h1 className="max-w-[14ch] font-display text-5xl leading-[1.05] tracking-tight sm:text-6xl">
+              Tire suas dúvidas e agende sua avaliação
+            </h1>
+            <p className="mt-6 max-w-[42ch] text-lg leading-relaxed text-lumini-muted">
+              Estética facial e corporal, emagrecimento saudável e saúde integrativa, com atendimento acolhedor e
+              profissionais identificadas.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link className={primaryLink} href="#contato">Quero ser contatada</Link>
+              <Link className={secondaryLink} href="#procedimentos">Ver procedimentos</Link>
+            </div>
+          </div>
+          <div className="light-study" aria-hidden="true">
+            <div className="light-outline" />
+            <div className="light-doorway" />
+            <span className="light-caption">lumini</span>
+          </div>
+        </section>
+
+        <Section id="procedimentos" eyebrow="Procedimentos" title="O que você procura?">
+          {catalog === null ? (
+            <p className="text-lumini-muted">
+              A lista de procedimentos está temporariamente indisponível. Deixe seu contato que a equipe te ajuda.
+            </p>
+          ) : services.length === 0 ? (
+            <Pending what="procedimentos aprovados e publicados no painel" />
+          ) : (
+            <>
+              <ul aria-label="Áreas" className="mb-8 flex flex-wrap gap-2">
+                {categories.map((category) => (
+                  <li key={category} className="border border-lumini-rose/40 px-3 py-1 text-sm text-lumini-rose">{category}</li>
+                ))}
+              </ul>
+              <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {services.map((service) => <ServiceCard key={service.id} service={service} />)}
+              </ul>
+            </>
+          )}
+        </Section>
+
+        <Section id="como-funciona" eyebrow="Atendimento" title="Como funciona">
+          <ol className="grid gap-6 md:grid-cols-4">
+            {STEPS.map(([title, text], index) => (
+              <li key={title} className="border-t border-lumini-gold/60 pt-4">
+                <span className="font-display text-3xl text-lumini-gold">{index + 1}</span>
+                <h3 className="mt-2 font-medium">{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-lumini-muted">{text}</p>
+              </li>
+            ))}
+          </ol>
+        </Section>
+
+        <Section id="profissionais" eyebrow="Equipe" title="Profissionais responsáveis">
+          {professionals.length === 0 ? (
+            <Pending what="profissionais com credenciais verificadas no painel" />
+          ) : (
+            <ul className="grid gap-5 sm:grid-cols-2">
+              {professionals.map((person) => (
+                <li key={person.id} className="border border-lumini-gold/40 bg-lumini-white/70 p-6">
+                  <h3 className="font-display text-2xl">{person.display_name}</h3>
+                  <p className="mt-1 text-lumini-muted">{person.category}</p>
+                  <p className="mt-1 text-sm">Registro: {person.council_registration}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+
+        <Section id="diferenciais" eyebrow="A Lumini" title="Por que a Lumini">
+          {site.differentiators ? (
+            <ul className="grid gap-4 sm:grid-cols-2">
+              {site.differentiators.map((item) => <li key={item} className="border-l-2 border-lumini-gold pl-4">{item}</li>)}
+            </ul>
+          ) : (
+            <Pending what="diferenciais da clínica (texto aprovado) e fotos autorizadas" />
+          )}
+        </Section>
+
+        <Section id="politicas" eyebrow="Regras claras" title="Políticas de agendamento">
+          <ul className="grid max-w-3xl gap-3">
+            {POLICIES.map((item) => <li key={item} className="border-l-2 border-lumini-gold pl-4 leading-relaxed">{item}</li>)}
+          </ul>
+        </Section>
+
+        {site.faq ? (
+          <Section id="duvidas" eyebrow="Dúvidas" title="Perguntas frequentes">
+            <div className="max-w-3xl">
+              {site.faq.map((item) => (
+                <details key={item.question} className="border-b border-lumini-gold/40 py-4">
+                  <summary className="cursor-pointer font-medium">{item.question}</summary>
+                  <p className="mt-3 leading-relaxed text-lumini-muted">{item.answer}</p>
+                </details>
+              ))}
+            </div>
+          </Section>
+        ) : (
+          <Section id="duvidas" eyebrow="Dúvidas" title="Perguntas frequentes">
+            <Pending what="perguntas frequentes aprovadas" />
+          </Section>
+        )}
+
+        <Section id="localizacao" eyebrow="Onde estamos" title="Localização e horários">
+          {site.address && site.hours ? (
+            <div className="grid gap-6 sm:grid-cols-2">
+              <p className="leading-relaxed">{site.address.street}<br />{site.address.city}</p>
+              <ul>{site.hours.map((line) => <li key={line}>{line}</li>)}</ul>
+            </div>
+          ) : (
+            <Pending what="endereço confirmado e horários de funcionamento" />
+          )}
+        </Section>
+
+        <Section id="contato" eyebrow="Fale com a clínica" title="Quer conversar com a gente?">
+          <p className="mb-8 max-w-2xl leading-relaxed text-lumini-muted">
+            Deixe seu nome e WhatsApp: a equipe da Lumini entra em contato para tirar dúvidas e combinar sua avaliação.
           </p>
-          <a className="site-link" href="https://lumini-contato.base44.app/">
-            Visitar site atual
-            <span aria-hidden="true">↗</span>
-          </a>
-        </div>
-
-        <div className="light-study" aria-hidden="true">
-          <div className="light-outline" />
-          <div className="light-doorway" />
-          <span className="light-caption">lumini</span>
-        </div>
+          <LeadForm apiOrigin={apiOrigin} services={services.map(({ id, name }) => ({ id, name }))} />
+        </Section>
       </main>
-
-      <footer className="site-footer">
-        <p>Em desenvolvimento</p>
-        <p>Agendamentos e atendimento ainda não estão disponíveis nesta prévia.</p>
-      </footer>
-    </div>
+      <SiteFooter />
+    </>
   );
 }

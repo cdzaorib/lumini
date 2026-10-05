@@ -119,3 +119,9 @@ Real local: webhook + PostgreSQL + worker + painel no Chrome. Mock: Evolution (r
 ## 2026-10-05 — T10b pedidos de contato (Claude)
 
 `lumini/leads/`: formulário público com consentimento de contato obrigatório e de marketing separado, sem texto livre, armadilha de robô, deduplicação diária, limite por endereço; lista e status no painel (aba “Contatos”, link para WhatsApp); exclusão automática dos não convertidos após 90 dias no tick. Evidência: 18 unitários + 8 integrações. Validação no navegador junto com o site (T10c).
+
+## 2026-10-05 — T10c site público (Claude)
+
+Landing (`/`) a partir do catálogo publicado: hero do plano, áreas, procedimentos com preço só pela regra (valor, “a partir de” ou após avaliação), como funciona, profissionais verificadas com registro (Cofen), políticas de agendamento geradas das regras do sistema, formulário de contato; página por procedimento (`/procedimentos/[slug]`); privacidade e termos como **rascunhos** (sem indexação, aviso visível); `robots`/`sitemap`/`X-Robots-Tag` fechados até `LUMINI_SITE_PUBLIC=true`; CSP por nonce em todas as páginas; conteúdo da clínica em `frontend/src/content/site.ts` com pendências visíveis só na prévia (`LUMINI_SITE_STAGE=production` oculta). Nada inventado: endereço, horários, WhatsApp, diferenciais, perguntas frequentes, fotos e depoimentos aguardam a clínica. Sem analytics/pixel.
+
+Evidência: E2E no Chrome 17/17 (site + formulário + aba Contatos), lint e typecheck verdes.
