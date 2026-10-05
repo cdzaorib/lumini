@@ -95,3 +95,8 @@ Credencial = token do link (HMAC-SHA256 sobre reserva + validade até o início 
 - `POST /api/public/leads` (site, sem login) com `{name, phone, city?, service_id?, preferred_period: morning|afternoon|any, contact_consent: true, marketing_consent?, website: ""}` → 201 `{ok: true}` (mesma resposta para gravado, atualizado ou armadilha de robô). Telefone brasileiro com DDD ou E.164. **Não há campo de texto livre** (poderia trazer dado de saúde). Procedimento não publicado é descartado. Reenvio do mesmo telefone em 24 h atualiza o pedido. Limite de 5 envios por endereço a cada 10 min (429). 422 sem eco.
 - `GET /api/admin/leads?status=new|contacted|converted|discarded` (padrão `new`, até 200) e `POST /api/admin/leads/{id}/status` com `{status}` → 204.
 - Retenção: não convertidos são apagados na data `retain_until` (90 dias, plano §12) pelo tick do worker; convertidos seguem a política de agendamentos (a aprovar antes do lançamento).
+
+## Chat do site (T10d)
+
+- `POST /api/public/chat/session` → 201 `{token, replies, options}`. Token aleatório (43 caracteres) guardado só pelo navegador; o servidor guarda o hash. Limite de 20 sessões por endereço a cada 10 min.
+- `POST /api/public/chat/messages` com `Authorization: Bearer <token>` e `{text}` (≤ 1000) → `{replies, options}`; `options` são as opções numeradas da última resposta. Erros com `{detail: {code}}`: 404 `session_invalid` (token malformado, desconhecido ou com mais de 24 h; recusado antes do banco), 409 `stale` (duas mensagens ao mesmo tempo; reenviar), 429 `rate_limited` (60 por sessão a cada 10 min), 503 `chat_unavailable`. Nenhum texto é gravado.

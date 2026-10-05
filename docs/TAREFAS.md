@@ -18,7 +18,7 @@ Atualizar após cada tarefa concluída/bloqueada e apontar detalhes em arquivos 
 | T08c | Worker (Celery beat), adaptador Google Calendar e reconciliação | Concluída (real local; Google simulado) | `VALIDACAO-004.md`: 194 unitários + 127 integrações; worker real com beat executou o tick; ADR-015 |
 | T08d | Autoatendimento por link seguro (cancelar/reagendar) | Concluída (real local) | `VALIDACAO-005.md`: 211 unitários + 140 integrações (20 rodadas estáveis); E2E cliente 18/18 e painel 26/26; ADR-016; corrigido deadlock intermitente da T08a |
 | T09 | WhatsApp (Evolution), modo humano e avisos | Concluída (real local; Evolution simulada — PoC real pendente) | `VALIDACAO-006.md`: 238 unitários + 161 integrações (10 rodadas); E2E integrações 12/12, painel 26/26, cliente 18/18; ADR-017; `RUNBOOK-WHATSAPP.md` |
-| T10 | IA, experiência pública e piloto | Próxima | Seguir fases 4–6 do plano e seus gates |
+| T10 | IA, experiência pública e piloto | Concluída (real local; provedores simulados; lançamento pendente) | `VALIDACAO-007.md`: 285 unitários + 180 integrações; E2E site 17/17, chat 16/16 + regressões; backup/restauração ensaiados; `LANCAMENTO.md` com o estado de cada gate; ADR-018 |
 
 ## 2026-10-01 — T01
 
@@ -133,3 +133,7 @@ Evidência: E2E no Chrome 17/17 (site + formulário + aba Contatos), lint e type
 Defeitos encontrados: token inválido ainda abria sessão de banco (checagem virou a primeira dependência); limpeza de sessões não apagava porque atribuir o mesmo valor a `updated_at` deixa o banco aplicar o próprio relógio (passou a usar `created_at`); orientação “Fale com a clínica nesta página” sem formulário em `/atendimento`; `favicon` 404.
 
 Evidência: 7 integrações novas; E2E chat 16/16 e regressão site 17/17, painel 26/26, cliente 18/18, integrações 12/12.
+
+## 2026-10-05 — T10e piloto: backup e checklist (Claude)
+
+Scripts `infrastructure/backup/backup.sh` e `restore.sh` (checksum, permissões restritas, recusa de destino não vazio ou igual à origem) e ensaio completo local (`VALIDACAO-007.md`); `RUNBOOK-BACKUP.md`; `LANCAMENTO.md` com cada critério do plano e seu estado real. Encerra o pedido do usuário de seguir até a etapa 10: tudo o que dependia só de código está construído e testado localmente; o restante depende da clínica, de credenciais ou de autorização de publicação.
