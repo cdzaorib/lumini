@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from lumini.booking.calendar import CalendarAdapter, CalendarUnavailable
 from lumini.booking.outbox import claim, finish, retry_later
 from lumini.booking.policy import DEFAULT_POLICY, BookingPolicy
+from lumini.booking.reconcile import requeue_stalled
 from lumini.booking.service import enqueue_due_notifications, expire_due, sync_calendar
 from lumini.models import Booking
 
@@ -66,6 +67,7 @@ class TickReport:
     skipped: int = 0
     retried: int = 0
     failed: int = 0
+    requeued: int = 0
     notes: list[str] = field(default_factory=list)
 
 
@@ -129,15 +131,22 @@ async def deliver_due(
 async def tick(
     session: AsyncSession,
     *,
-    calendar: CalendarAdapter,
+    calendar: CalendarAdapter | None,
     notifier: Notifier | None,
     now: datetime,
     policy: BookingPolicy = DEFAULT_POLICY,
 ) -> TickReport:
-    """One worker cycle; safe to run concurrently and repeatedly."""
+    """One worker cycle; safe to run concurrently and repeatedly.
+
+    Without a calendar adapter, calendar jobs wait (never turned into conflicts); expiry and
+    message scheduling still run.
+    """
     report = TickReport()
     report.expired = len(await expire_due(session, now=now))
     report.scheduled_messages = await enqueue_due_notifications(session, now=now, policy=policy)
+    if calendar is None:
+        return report
+    report.requeued = await requeue_stalled(session, now=now)
     return await deliver_due(
         session, calendar=calendar, notifier=notifier, now=now, policy=policy, report=report
     )

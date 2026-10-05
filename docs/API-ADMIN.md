@@ -50,7 +50,7 @@ Não aceitar status, aprovador, datas verificadas ou revisão arbitrária em DTO
 
 ## Agenda e reservas da equipe (T08b)
 
-**Estado (2026-10-05, Claude):** implementado e testado localmente (`lumini/booking/{router,queries,schedule,schemas}.py`, `lumini/deps.py`); painel com abas Reservas/Agenda/Catálogo validado no Chrome contra API e PostgreSQL locais com identidade e **calendário sintéticos** (`VALIDACAO-003.md`). Sem adaptador Google configurado no processo, rotas que consultam o calendário respondem 503 `calendar_not_configured` (T08c traz o adaptador real). Todas as rotas exigem o mesmo login/allowlist; autenticação ocorre antes de abrir sessão de banco ou tocar no calendário. Respostas com `Cache-Control: no-store`. CORS passou a incluir `PUT`.
+**Estado (2026-10-05, Claude):** implementado e testado localmente (`lumini/booking/{router,queries,schedule,schemas}.py`, `lumini/deps.py`); painel com abas Reservas/Agenda/Catálogo validado no Chrome contra API e PostgreSQL locais com identidade e **calendário sintéticos** (`VALIDACAO-003.md`). Sem `LUMINI_GOOGLE_CALENDAR_CREDENTIALS` (chave JSON da conta de serviço, T08c/ADR-015), rotas que consultam o calendário respondem 503 `calendar_not_configured`. Com ela, o adaptador real é usado; ainda não validado contra o Google. Todas as rotas exigem o mesmo login/allowlist; autenticação ocorre antes de abrir sessão de banco ou tocar no calendário. Respostas com `Cache-Control: no-store`. CORS passou a incluir `PUT`.
 
 Recusas: `{detail: string, code: string}`; ver ADR-014 para a lista de códigos. 404 `not_found`; 422 validação (sem eco da entrada); 409 estado/versão/regra; 503 `calendar_unavailable`/`calendar_not_configured` ou banco indisponível.
 

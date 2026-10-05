@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from lumini.auth import build_identity_verifier
+from lumini.booking.google_calendar import build_calendar
 from lumini.booking.router import BOOKING_ERRORS, booking_error_handler
 from lumini.booking.router import router as booking_router
 from lumini.catalog.router import admin_router, public_router
@@ -62,6 +63,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = config
     # Constructing the verifier performs no network work; unconfigured access fails closed.
     app.state.identity_verifier = build_identity_verifier(config)
+    # None until the clinic's service account is configured: calendar routes answer 503.
+    app.state.calendar = build_calendar(config)
     app.add_exception_handler(RequestValidationError, sanitized_validation_error)
     for error_type in BOOKING_ERRORS:
         app.add_exception_handler(error_type, booking_error_handler)

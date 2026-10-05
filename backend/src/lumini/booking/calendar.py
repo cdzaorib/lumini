@@ -4,6 +4,7 @@ Event ids are derived from booking ids, so creating, updating and deleting are i
 response can always be reconciled. Events never carry contact names, phones or clinical text.
 """
 
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -17,8 +18,18 @@ def event_id(booking_id: uuid.UUID) -> str:
     return f"{EVENT_PREFIX}{booking_id.hex}"
 
 
+_OURS = re.compile(rf"{EVENT_PREFIX}([0-9a-f]{{32}})")
+
+
+def booking_id_of(remote_event_id: str | None) -> uuid.UUID | None:
+    """The booking behind one of our events. Exact format only: a manual event whose id merely
+    starts with the prefix still counts as busy time."""
+    match = _OURS.fullmatch(remote_event_id or "")
+    return uuid.UUID(match.group(1)) if match else None
+
+
 def is_ours(remote_event_id: str | None) -> bool:
-    return remote_event_id is not None and remote_event_id.startswith(EVENT_PREFIX)
+    return booking_id_of(remote_event_id) is not None
 
 
 @dataclass(frozen=True)

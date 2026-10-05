@@ -15,8 +15,8 @@ Atualizar após cada tarefa concluída/bloqueada e apontar detalhes em arquivos 
 | T07c | Verificação de segredos no CI (Fase 1 do plano integral) | Concluída (local; CI não executado remotamente) | gitleaks 8.30.1, checksum oficial conferido; histórico limpo; controle positivo detectou token falso |
 | T08a | Núcleo de reservas (estados, trava, sinal, expiração, cancelamento, reagendamento, outbox) | Concluída (real local; calendário fake) | Migração 0003; 130 unitários + 91 integrações (33 de fluxo, 3 de concorrência real com commits); ADR-013 |
 | T08b | API administrativa e painel de reservas/agenda | Concluída (real local; calendário fake) | `VALIDACAO-003.md`: 152 unitários + 119 integrações; E2E 26/26 no Chrome, CSP 0; ADR-014; corrigida leitura desatualizada no núcleo |
-| T08c | Worker (Celery beat) e adaptador Google Calendar | Próxima | `tick` periódico, entrega do outbox, adaptador real com conta de serviço (não validável sem credenciais) |
-| T08d | Autoatendimento por link seguro (cancelar/reagendar) | Planejada | Token assinado com expiração; regras de 24h já no domínio |
+| T08c | Worker (Celery beat), adaptador Google Calendar e reconciliação | Concluída (real local; Google simulado) | `VALIDACAO-004.md`: 194 unitários + 127 integrações; worker real com beat executou o tick; ADR-015 |
+| T08d | Autoatendimento por link seguro (cancelar/reagendar) | Próxima | Token assinado com expiração; regras de 24h já no domínio |
 | T09 | PoC Evolution e modo humano | Dependente de instância de teste | Provar origem das mensagens; invalidar respostas pendentes; sem número real por enquanto |
 | T10 | IA, experiência pública e piloto | Planejada | Seguir fases 4–6 do plano e seus gates |
 
@@ -89,3 +89,9 @@ Defeito do núcleo T08a corrigido (ADR-014): leituras sem trava devolviam a cóp
 Varredura de segredos do histórico estava vermelha desde a T08a por falso positivo (chave de idempotência sintética); registrado em `.gitleaksignore` por impressão digital exata, com controle positivo. Commits locais `c846947` (T08b) e seguinte (`.gitleaksignore` + docs).
 
 Evidência em `VALIDACAO-003.md`. Real local: API + PostgreSQL + painel no Chrome. Mock: identidade, calendário (em memória), script do Google. Não iniciado: adaptador Google, worker agendado, mensagens.
+
+## 2026-10-05 — T08c worker, adaptador Google e reconciliação (Claude)
+
+Implementado: `booking/google_calendar.py` (REST v3, conta de serviço, `requests` em threads, classificação de falhas sem texto do Google, upsert PUT/POST, delete idempotente), `booking/reconcile.py` (reenfileirar sincronizações travadas; reparar eventos da Lumini alterados no Google), `booking/jobs.py` (ciclos com engine própria e trava Redis), tarefas e beat em `worker.py`, `LUMINI_GOOGLE_CALENDAR_CREDENTIALS` validada em `settings.py`, `app.state.calendar` montado a partir dela. `tick` aceita rodar sem calendário (só expira e agenda mensagens). Identificação estrita dos eventos da Lumini. Outbox informa se gravou o job e aceita motivo na chave de deduplicação.
+
+Evidência em `VALIDACAO-004.md`. Real local: worker Celery + beat + PostgreSQL + Redis. Mock: Google (transporte HTTP falso, calendário em memória). Não iniciado: credencial real, envio de mensagens, alerta de sobreposição de terceiros em reserva confirmada.

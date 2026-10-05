@@ -59,7 +59,16 @@ Rotas da equipe em `booking/router.py` (agenda, prévia de horários, lista e a�
 ../.tools/bin/uv run python -m lumini.worker
 ```
 
-Celery está configurado para mensagens JSON, UTC, sem resultados/eventos de tarefas, e requer Redis explicitamente. Não há tarefas de negócio registradas nem confirmação simulada de pagamento/agenda. Jobs futuros devem transportar IDs mínimos, ser idempotentes e consultar prazos persistidos no PostgreSQL. Expirações de duas horas não dependerão de uma tarefa ETA em memória nem de TTL Redis isolado.
+Um processo Celery com beat embutido (`--beat`, concorrência 1). Tarefas (`booking/jobs.py`), cada execução com engine/sessão próprias e trava no Redis (a trava evita trabalho repetido; a correção vem das travas e versões no PostgreSQL):
+
+- `lumini.booking.tick` a cada 60 s: expira reservas vencidas, agenda mensagens por horário, reenfileira sincronizações travadas e entrega o outbox do calendário. Sem `LUMINI_GOOGLE_CALENDAR_CREDENTIALS`, só expira e agenda mensagens; jobs de calendário esperam (nunca viram conflito). Mensagens ficam pendentes até existir um canal (T09).
+- `lumini.calendar.reconcile` a cada 15 min (só com credencial): compara os eventos da Lumini em cada calendário com as reservas e desfaz alterações feitas direto no Google (evento apagado, movido ou restaurado).
+
+Mensagens do beat expiram para um worker parado não reexecutar um acúmulo de ciclos. Rode **um** beat; duplicado só desperdiça trabalho. Logs só com contagens e códigos fixos.
+
+## Google Calendar (`booking/google_calendar.py`)
+
+API REST v3 com conta de serviço (escopo `calendar.events`), `requests` em threads, timeout 3 s/10 s, sem redirects, resposta limitada a 1 MB, até 10 páginas. Falhas viram `CalendarUnavailable` (tentar depois: rede, 429, 5xx, cota, token) ou `CalendarRejected` (calendário inexistente ou não compartilhado, 400), sem texto do Google. Eventos: id determinístico, `visibility: private`, sem convidados nem `sendUpdates`. Configuração: `LUMINI_GOOGLE_CALENDAR_CREDENTIALS` com o JSON da chave, injetado pelo gerenciador de segredos na API e no worker; `token_uri` precisa ser o do Google. Testes usam transporte falso e chaves geradas na hora; **nunca validado contra o Google real**.
 
 Para `rediss://`, o broker exige certificado válido (`CERT_REQUIRED`) e validação do hostname. O teste inspeciona as opções efetivamente resolvidas pelo Kombu; handshake TLS contra um provedor remoto ainda não foi validado.
 

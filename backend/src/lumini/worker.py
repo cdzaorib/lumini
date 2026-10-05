@@ -1,11 +1,25 @@
-"""Celery configuration only; no booking jobs or provider integrations registered yet."""
+"""Celery worker with an embedded beat schedule for the booking jobs.
 
+Run exactly one beat (the default `main` embeds it in a single worker). A duplicate beat only
+wastes work: each job takes a Redis lock and PostgreSQL keeps concurrent runs correct.
+"""
+
+import asyncio
 import ssl
+import tempfile
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from celery import Celery
 
+from lumini.booking.google_calendar import build_calendar
+from lumini.booking.jobs import run_reconcile, run_tick
 from lumini.settings import Settings
+
+TICK_TASK = "lumini.booking.tick"
+RECONCILE_TASK = "lumini.calendar.reconcile"
+TICK_SECONDS = 60.0
+RECONCILE_SECONDS = 900.0
 
 
 def create_worker(settings: Settings | None = None) -> Celery:
@@ -32,11 +46,39 @@ def create_worker(settings: Settings | None = None) -> Celery:
             "ssl_cert_reqs": ssl.CERT_REQUIRED,
             "ssl_check_hostname": True,
         }
+
+    calendar = build_calendar(config)
+
+    @worker.task(name=TICK_TASK, shared=False)  # type: ignore[untyped-decorator]
+    def booking_tick() -> None:
+        asyncio.run(run_tick(config, calendar=calendar))
+
+    @worker.task(name=RECONCILE_TASK, shared=False)  # type: ignore[untyped-decorator]
+    def calendar_reconcile() -> None:
+        if calendar is not None:
+            asyncio.run(run_reconcile(config, calendar=calendar))
+
+    # Expiring messages keep a stopped worker from replaying a backlog of identical runs.
+    worker.conf.beat_schedule = {
+        "booking-tick": {
+            "task": TICK_TASK,
+            "schedule": TICK_SECONDS,
+            "options": {"expires": TICK_SECONDS - 5},
+        },
+        "calendar-reconcile": {
+            "task": RECONCILE_TASK,
+            "schedule": RECONCILE_SECONDS,
+            "options": {"expires": RECONCILE_SECONDS / 2},
+        },
+    }
     return worker
 
 
 def main() -> None:
-    create_worker().worker_main(["worker", "--loglevel=WARNING", "--concurrency=1"])
+    schedule = Path(tempfile.gettempdir()) / "lumini-celerybeat-schedule"
+    create_worker().worker_main(
+        ["worker", "--loglevel=WARNING", "--concurrency=1", "--beat", f"--schedule={schedule}"]
+    )
 
 
 if __name__ == "__main__":

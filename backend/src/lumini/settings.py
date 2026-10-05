@@ -1,6 +1,7 @@
 """Process environment only; no implicit .env or inherited project configuration."""
 
-from typing import Literal
+import json
+from typing import Any, Literal
 from urllib.parse import parse_qs, urlsplit
 from uuid import UUID
 
@@ -23,6 +24,9 @@ class Settings(BaseSettings):
     google_client_id: str | None = Field(default=None, max_length=256)
     admin_emails: list[str] = Field(default_factory=list, repr=False)
     reviewer_assignments: dict[str, list[UUID]] = Field(default_factory=dict, repr=False)
+    # Service account key (JSON) for Google Calendar; injected by the secret manager, never a file
+    # in the repository. Without it, calendar-dependent routes and jobs stay disabled.
+    google_calendar_credentials: SecretStr | None = None
 
     @field_validator("google_client_id")
     @classmethod
@@ -95,6 +99,14 @@ class Settings(BaseSettings):
             ) from None
         return value
 
+    @field_validator("google_calendar_credentials")
+    @classmethod
+    def validate_google_calendar_credentials(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is None:
+            return None
+        _service_account_info(value.get_secret_value())
+        return value
+
     @field_validator("cors_origins")
     @classmethod
     def validate_origins(cls, values: list[str]) -> list[str]:
@@ -113,6 +125,11 @@ class Settings(BaseSettings):
                     "CORS requires explicit HTTP(S) origins without credentials or path"
                 )
         return [value.rstrip("/") for value in values]
+
+    def calendar_service_account(self) -> dict[str, Any] | None:
+        if self.google_calendar_credentials is None:
+            return None
+        return _service_account_info(self.google_calendar_credentials.get_secret_value())
 
     def sqlalchemy_url(self) -> URL | None:
         if self.database_url is None:
@@ -133,3 +150,23 @@ def normalize_email(value: str) -> str:
     ):
         raise ValueError("a valid administrative email is required")
     return normalized
+
+
+def _service_account_info(raw: str) -> dict[str, Any]:
+    """Parse a service account key. Errors never include the key material."""
+    try:
+        info = json.loads(raw)
+    except ValueError:
+        raise ValueError("google_calendar_credentials must be a service account JSON key") from None
+    if (
+        not isinstance(info, dict)
+        or info.get("type") != "service_account"
+        or not isinstance(info.get("client_email"), str)
+        or not info["client_email"].endswith(".iam.gserviceaccount.com")
+        or not isinstance(info.get("private_key"), str)
+        or "PRIVATE KEY" not in info["private_key"]
+        # The signed assertion must only ever go to Google's token endpoint.
+        or info.get("token_uri") != "https://oauth2.googleapis.com/token"
+    ):
+        raise ValueError("google_calendar_credentials must be a service account JSON key")
+    return info

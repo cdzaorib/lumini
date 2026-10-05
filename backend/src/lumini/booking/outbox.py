@@ -35,8 +35,9 @@ async def enqueue(
     dedupe_key: str,
     now: datetime,
     event: str | None = None,
-) -> None:
-    await session.execute(
+) -> bool:
+    """True when a new job was written (False: the dedupe key already existed)."""
+    result = await session.execute(
         insert(OutboxJob)
         .values(
             id=uuid.uuid4(),
@@ -49,25 +50,31 @@ async def enqueue(
             available_at=now,
         )
         .on_conflict_do_nothing(index_elements=[OutboxJob.dedupe_key])
+        .returning(OutboxJob.id)
     )
+    return result.scalar_one_or_none() is not None
 
 
-async def enqueue_calendar_sync(session: AsyncSession, booking: Booking, now: datetime) -> None:
+async def enqueue_calendar_sync(
+    session: AsyncSession, booking: Booking, now: datetime, *, reason: str | None = None
+) -> bool:
     # One job per booking version; the handler always converges to the current desired state.
-    await enqueue(
+    # Reconciliation adds a reason so a repair is not swallowed by the version's spent key.
+    suffix = f":{reason}" if reason else ""
+    return await enqueue(
         session,
         kind="calendar_sync",
         booking_id=booking.id,
-        dedupe_key=f"calendar:{booking.id}:{booking.version}",
+        dedupe_key=f"calendar:{booking.id}:{booking.version}{suffix}",
         now=now,
     )
 
 
 async def enqueue_notification(
     session: AsyncSession, booking_id: uuid.UUID, event: str, now: datetime
-) -> None:
+) -> bool:
     # Each message type is sent at most once per booking.
-    await enqueue(
+    return await enqueue(
         session,
         kind="notification",
         booking_id=booking_id,

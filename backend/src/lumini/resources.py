@@ -47,6 +47,7 @@ class Resources:
     database: Probe | None = None
     redis: Probe | None = None
     sessions: async_sessionmaker[AsyncSession] | None = None
+    redis_client: Redis | None = None
 
 
 async def check_dependency(probe: Probe | None, deadline_seconds: float) -> DependencyStatus:
@@ -84,6 +85,7 @@ async def open_resources(settings: Settings) -> AsyncIterator[Resources]:
                     socket_timeout=settings.dependency_timeout_seconds,
                 )
                 resources.redis = RedisProbe(redis)
+                resources.redis_client = redis
         except Exception:
             # Invalid URL options can echo sensitive query values before a
             # connection is attempted. Do not display the driver exception chain.

@@ -4,6 +4,7 @@ import pytest
 from pydantic import SecretStr, ValidationError
 
 from lumini.settings import Settings
+from tests.calendar_keys import service_account_json
 
 
 def test_secret_urls_are_masked_in_representations() -> None:
@@ -60,3 +61,30 @@ def test_only_prefixed_process_environment_is_loaded(
     assert settings.database_url is None
     monkeypatch.setenv("LUMINI_ENVIRONMENT", "test")
     assert Settings().environment == "test"
+
+
+def test_calendar_key_is_parsed_and_never_shown() -> None:
+    raw = service_account_json()
+    settings = Settings(google_calendar_credentials=SecretStr(raw))
+    info = settings.calendar_service_account()
+    assert info is not None and info["client_email"].endswith(".iam.gserviceaccount.com")
+    assert "PRIVATE KEY" not in repr(settings) and "PRIVATE KEY" not in str(settings)
+    assert Settings().calendar_service_account() is None
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "not json PRIVATE KEY",
+        service_account_json(type="authorized_user"),
+        service_account_json(token_uri="https://attacker.invalid/token"),
+        service_account_json(client_email="someone@gmail.com"),
+        service_account_json(private_key="synthetic"),
+        '["PRIVATE KEY"]',
+    ],
+)
+def test_calendar_key_rejects_other_credentials_without_echoing_them(raw: str) -> None:
+    with pytest.raises(ValidationError) as caught:
+        Settings(google_calendar_credentials=SecretStr(raw))
+    assert "PRIVATE KEY" not in str(caught.value)
+    assert "attacker" not in str(caught.value) and "gmail" not in str(caught.value)
