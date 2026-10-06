@@ -26,7 +26,7 @@ Estado em 2026-10-05, ao fim da T11. Legenda: **Pronto (local)** = implementado 
 | Textos do bot e dados do sinal (Pix) | Pendente | Aprovar `backend/src/lumini/whatsapp/texts.py`; instruções do sinal já podem ser preenchidas na aba Site |
 | Decisões de produto abertas | Pendente | Antecedência mínima de 3 h; sinal zero com confirmação humana; lembretes em modo humano; conduta além do aviso quando há compromisso de terceiros sobre reserva (hoje só avisa no painel) |
 | Conteúdo da landing | Pendente (ferramenta pronta) | A clínica preenche na aba **Site** do painel: endereço, horários, WhatsApp, diferenciais, perguntas frequentes, depoimentos autorizados e instruções do sinal; fotos autorizadas ainda dependem de código |
-| Domínio, HTTPS e deploy (Vercel/Railway) | Pendente | Autorização específica do usuário; variáveis no gerenciador de segredos |
+| Domínio, HTTPS e deploy (Vercel/Supabase/Railway) | Preparado / bloqueado | Produção, GitHub público e push autorizados em 2026-10-06; Vercel `lumini` criado, checks e configuração local prontos; faltam acesso GitHub/Railway, organização/custo Supabase e variáveis reais (`DEPLOY.md`) |
 | CI remoto | Preparado | Workflow com testes e gitleaks; sem remoto Git |
 | Métricas e comparecimento | Pronto (local) | Aba Resumo, marcação de comparecimento/falta, histórico de cada reserva (`VALIDACAO-008`) |
 | Segurança | Pronto (local) / Pendente | `SEGURANCA.md`, teste de rotas; revisão independente sobre o ambiente publicado pendente |

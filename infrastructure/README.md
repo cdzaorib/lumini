@@ -1,6 +1,8 @@
 # Infraestrutura — preparação, sem implantação
 
-Alvos aprovados: Vercel (frontend), Railway (API/worker/Evolution/PostgreSQL/Redis), Google Calendar e storage desacoplado. Nenhum projeto de nuvem foi criado neste marco.
+Alvos aprovados em 2026-10-06: Vercel (frontend), Supabase (PostgreSQL), Railway (API/worker/Redis; Evolution quando configurada), Google Calendar e storage desacoplado. FastAPI, Celery e login Google são preservados (ADR-019). Estado de nuvem e configuração em `../docs/DEPLOY.md`; o projeto `lumini` da Vercel foi criado, sem implantação ainda.
+
+Receitas Railway: `../backend/railway.api.json` e `../backend/railway.worker.json`. Ambos usam raiz `/backend`; configurar o path de cada arquivo relativo à raiz do repositório. Não há migração automática no start. A receita está preparada; só considerar o build Railpack validado depois de uma execução na plataforma.
 
 Antes do deploy:
 

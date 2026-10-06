@@ -1,5 +1,13 @@
 # Decisões técnicas
 
+## ADR-019 — Hospedagem Vercel, Supabase PostgreSQL e Railway (2026-10-06)
+
+O usuário autorizou preparar/publicar a Lumini e esclareceu que este checkout deve preservar FastAPI, Celery/Redis e o login Google. Supabase passa a ser o provedor do PostgreSQL; frontend na Vercel, API/worker/Redis no Railway. Isso substitui somente a escolha de provedor PostgreSQL dos planos anteriores; não migra a autorização para Supabase Auth nem reimplementa regras no Data API. Supabase Storage não é usado atualmente.
+
+O frontend continua consumindo a API FastAPI. `LUMINI_DATABASE_URL` pertence apenas à API/worker e às migrações; nenhuma chave Supabase é necessária no navegador. Usar conexão direta ou pooler em modo sessão, compatível com conexões persistentes e prepared statements do asyncpg. O endpoint real deve vir do painel, com TLS, sem inventar host ou credencial. Antes de criar tabelas no novo projeto, desativar o Data API que não será usado e verificar a ausência de acesso por `anon`/`authenticated`; a autorização administrativa permanece no backend. Não aplicar migrações em projetos de outros produtos.
+
+Arquivos separados de configuração Railway para API e worker: raiz `/backend`, paths `/backend/railway.api.json` e `/backend/railway.worker.json`; instalação com `uv.lock` congelado, um worker com beat e uma réplica. Migrações são uma operação explícita, fora do start/pre-deploy automático; somente após conferir projeto e estado do banco. Preview não deve usar banco/contas de produção. Detalhes, credenciais pendentes e evidências em `DEPLOY.md`.
+
 ## ADR-001 — Python no backend (aprovada pelo usuário)
 
 FastAPI/Pydantic, SQLAlchemy/Alembic, Celery/Redis; Next.js permanece no frontend. PyCharm é IDE, não dependência de runtime. Não assumir que Python é universalmente superior: a escolha reflete preferência do usuário e adequação ao projeto. Ambos os ecossistemas atendem ao escopo.
