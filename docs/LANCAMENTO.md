@@ -1,6 +1,6 @@
 # Checklist de lançamento (plano §15 e gates do `PLANO.md`)
 
-Estado em 2026-10-05, ao fim da T11. Legenda: **Pronto (local)** = implementado e testado localmente com dados sintéticos; **Preparado** = construído, sem validação com o serviço real; **Pendente** = depende da clínica, de credenciais ou de autorização. Nenhum item “Pendente” pode ser marcado sem evidência.
+Estado atualizado em 2026-10-14, retomada T12/T13. GitHub/CI e frontend protegido reais; aplicação completa ainda não publicada. Legenda: **Pronto (local)** = implementado e testado localmente com dados sintéticos; **Preparado** = construído, sem validação com o serviço real; **Pendente** = depende da clínica, de credenciais ou de acesso. Tarefas exatas em `PENDENCIAS.md`. Nenhum item “Pendente” pode ser marcado sem evidência.
 
 | Critério | Estado | O que falta / evidência |
 |---|---|---|
@@ -22,12 +22,13 @@ Estado em 2026-10-05, ao fim da T11. Legenda: **Pronto (local)** = implementado 
 | Mobile e acessibilidade | Pronto (local) / Pendente | 390 px, teclado, foco, rótulos e CSP em `make e2e`; revisão pelas Web Interface Guidelines aplicada (`VALIDACAO-008`); falta teste com leitor de tela |
 | Desempenho | Pendente | Medir no ambiente de produção (Core Web Vitals) |
 | Login Google real no painel | Pendente | Client ID OAuth da clínica |
-| IA (DeepSeek/Jev) | Preparado, desligado | Ligar só após a bancada sintética com o provedor escolhido aprovar minimização (ADR-018); Jev sem adaptador até a API ser verificada |
-| Textos do bot e dados do sinal (Pix) | Pendente | Aprovar `backend/src/lumini/whatsapp/texts.py`; instruções do sinal já podem ser preenchidas na aba Site |
+| IA (DeepSeek/Jev) | Pronto (local) / desligado | Jev específico e redator separados; bancada classificador/redator/fallback/custo disponível (ADR-021). Nenhuma chamada autenticada/modelo/fallback real validado; ligar só após bancada real e revisão da minimização |
+| Textos do bot e dados do sinal (Pix) | Pronto (local) / Pendente | Painel edita12 textos operacionais e Pix sob revisão global; regras/saúde/STOP/reserva em processamento permanecem fixos. Aprovação real da clínica pendente |
 | Decisões de produto abertas | Pendente | Antecedência mínima de 3 h; sinal zero com confirmação humana; lembretes em modo humano; conduta além do aviso quando há compromisso de terceiros sobre reserva (hoje só avisa no painel) |
-| Conteúdo da landing | Pendente (ferramenta pronta) | A clínica preenche na aba **Site** do painel: endereço, horários, WhatsApp, diferenciais, perguntas frequentes, depoimentos autorizados e instruções do sinal; fotos autorizadas ainda dependem de código |
-| Domínio, HTTPS e deploy (Vercel/Supabase/Railway) | Preparado / bloqueado | Produção, GitHub público e push autorizados em 2026-10-06; Vercel `lumini` criado, checks e configuração local prontos; faltam acesso GitHub/Railway, organização/custo Supabase e variáveis reais (`DEPLOY.md`) |
-| CI remoto | Preparado | Workflow com testes e gitleaks; sem remoto Git |
+| Conteúdo da landing | Pronto (local) / Pendente | Aba Site inclui fotos externas autorizadas/origens explícitas e mensagens; salva rascunho, revisão por todas as profissionais verificadas, publicação explícita e revogação real. Materiais/autorizações/storage da clínica pendentes |
+| Analytics | Pronto (local) / desligado | Consentimento/recusa/revogação, medição mínima só na landing; nenhum fornecedor real configurado. Meta Pixel somente configuração preparada, sem runtime, aguardando campanha/consentimento separado |
+| Domínio, HTTPS e deploy (Vercel/Supabase/Railway) | Frontend real protegido / resto bloqueado | GitHub público e frontend Vercel READY; sem API/banco/worker/Redis reais. Railway desconectado, organização/custo Supabase e variáveis reais pendentes. Indexação fechada |
+| CI remoto | Real | GitHub Actions baseline 7fddf38 passou secrets/backend/frontend; resultado do commit final registrado em HANDOFF/TAREFAS |
 | Métricas e comparecimento | Pronto (local) | Aba Resumo, marcação de comparecimento/falta, histórico de cada reserva (`VALIDACAO-008`) |
 | Segurança | Pronto (local) / Pendente | `SEGURANCA.md`, teste de rotas; revisão independente sobre o ambiente publicado pendente |
 | Piloto interno | Pendente | Após integrações reais: equipe usa o fluxo completo com clientes de teste |

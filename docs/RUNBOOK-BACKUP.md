@@ -10,7 +10,9 @@ LUMINI_DATABASE_URL=<do gerenciador de segredos> infrastructure/backup/backup.sh
 
 Gera `lumini-<data UTC>.dump` (formato custom do `pg_dump`, sem dono/privilégios) e `.sha256`. Pasta 700, arquivos 600. A URL do banco nunca é impressa.
 
-Produção: além deste dump lógico, ativar e **verificar** os backups automáticos do provedor do PostgreSQL (Railway) e definir frequência, retenção e quem pode restaurar. Pendente até o deploy ser autorizado.
+Produção: além deste dump lógico, confirmar a disponibilidade/custo e **verificar** os backups do provedor PostgreSQL (Supabase, ADR-019), definir frequência, retenção e quem pode restaurar. Não presumir backup automático no plano Free; um destino externo criptografado e o agendamento do dump precisam ser configurados se a cobertura do plano não atender. Publicação já autorizada; falta provisionar o banco e comprovar a restauração isolada.
+
+Documentação atual consultada: [Database Backups — Supabase](https://supabase.com/docs/guides/platform/backups), que orienta exportações e cópias fora do provedor para o plano Free. Backups do banco não incluem os arquivos de fotos do storage/CDN: guardar cópias autorizadas desses assets separadamente.
 
 ## Restauração (sempre num banco novo e vazio)
 

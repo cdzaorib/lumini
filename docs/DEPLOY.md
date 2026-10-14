@@ -1,4 +1,10 @@
-# Preparação de publicação — 2026-10-06
+# Preparação de publicação — atualizado em 2026-10-14
+
+## Retomada T12a/T12b/T13
+
+GitHub público criado e `main` enviada com histórico integral: `https://github.com/cdzaorib/lumini`; CLI autenticado. CI do baseline `7fddf38` verde (run 38570501448). Vercel existente tem primeiro deployment **READY**, protegido, na origem real `https://lumini-cdzaoribs-projects.vercel.app`; indexação fechada. `LUMINI_PUBLIC_SITE_URL` dessa origem configurada somente em Production. API/banco/worker ainda não existem: isso não é lançamento funcional.
+
+O contexto Git da Vercel ainda não lista Lumini como vinculado. Deploy explícito a partir do commit GitHub funciona; para automação de pushes, conectar `cdzaorib/lumini` no projeto existente (Settings → Git) quando o navegador estiver disponível. Não duplicar o projeto. Railway segue desconectado, nenhum navegador CUA disponível, nenhum projeto Supabase Lumini e nenhuma credencial Lumini no ambiente. Tarefas externas detalhadas em `PENDENCIAS.md`.
 
 ## Escopo e auditoria
 
@@ -25,8 +31,8 @@ Projeto **lumini**, ID `prj_QLNtFWbhZcQbEY9xic5IqnMOZoVY`, equipe `cdzaoribs-pro
 | Install | `npm ci` |
 | Build | `npm run build` |
 | Output | Automático do Next.js; sem override/export estático |
-| Git | Pendente da criação e push do repositório GitHub |
-| Deploy / URL | Ainda não iniciado; nenhuma URL de produção validada |
+| Git | GitHub criado/push realizado; associação automática Vercel pendente |
+| Deploy / URL | Primeiro frontend READY e protegido; origem real validada acima; sem API |
 
 Configuração versionada em `frontend/vercel.json`; `.vercelignore` exclui ambientes e artefatos locais de uploads CLI. O projeto mantém a proteção de deploy padrão da equipe; conferir o acesso anônimo ao `.vercel.app` antes de declarar o site público.
 
@@ -36,10 +42,12 @@ Variáveis realmente lidas pelo frontend (as marcadas pendentes **não foram pre
 |---|---|---|
 | `NEXT_PUBLIC_API_BASE_URL` | Production e Preview | Pendente: origem HTTPS da API de cada ambiente; libera formulário/chat/painel |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Production e Preview | Pendente: Client ID Google real do ambiente, igual ao backend |
-| `LUMINI_PUBLIC_SITE_URL` | Cada ambiente | Pendente: origem real, sem caminho, para sitemap/SEO |
+| `LUMINI_PUBLIC_SITE_URL` | Cada ambiente | Production configurada com a origem real validada; Preview só quando sua origem estiver definida |
 | `LUMINI_SITE_STAGE` | Production e Preview | Configurada por ambiente; produção oculta avisos internos, preview mostra pendências |
 | `LUMINI_SITE_PUBLIC` | Production e Preview | Configurada: indexação fechada até critérios de `LANCAMENTO.md` |
 | `LUMINI_API_INTERNAL_URL` | Servidor Next, opcional | Não configurada; só usar URL comprovadamente acessível pela Vercel, sem credenciais. Uma URL privada Railway não é acessível automaticamente pela Vercel |
+| `LUMINI_MEDIA_ORIGINS` | Servidor Next/build | JSON de origens HTTPS do storage/CDN da clínica; igual à allowlist backend. Ausente = fotos ocultas. Não contém chave nem query; Next não segue redirects |
+| `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | Public config do frontend | Opcional, domínio cadastrado no Plausible pela clínica; sem conta/valor = medição desligada. Só `/`, com consentimento explícito |
 
 `NODE_ENV` é gerenciado pela plataforma. `NEXT_TELEMETRY_DISABLED` é opcional para ferramentas de build, não funcionalidade. Não adicionar `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` ou `SUPABASE_SERVICE_ROLE_KEY`: não são usadas nesta arquitetura. Nenhuma URL de banco, Redis, chave de agenda ou Evolution pertence à Vercel.
 
@@ -73,6 +81,7 @@ Não há migration pre-deploy automática; a inicialização do banco deve ser c
 | `LUMINI_DATABASE_URL` | API/worker/migrações | Pendente: conexão Supabase, segredo |
 | `LUMINI_REDIS_URL` | API/worker | Pendente: Redis do projeto, segredo |
 | `LUMINI_CORS_ORIGINS` | API | JSON de origens HTTPS reais e explícitas; não wildcard |
+| `LUMINI_MEDIA_ORIGINS` | API/worker | JSON de origens HTTPS explícitas para fotos; nenhuma origem de outro projeto; publicação recusa origem ausente |
 | `LUMINI_GOOGLE_CLIENT_ID` | API | Pendente: Client ID Google |
 | `LUMINI_ADMIN_EMAILS` | API | Pendente: JSON de administradores Gmail/Workspace autorizados |
 | `LUMINI_REVIEWER_ASSIGNMENTS` | API | JSON email → UUIDs das profissionais aprovadas, após cadastro; não inventar atribuições |
@@ -87,6 +96,9 @@ Não há migration pre-deploy automática; a inicialização do banco deve ser c
 | `LUMINI_AI_BASE_URL` | API/worker | Só quando IA autorizada/habilitada |
 | `LUMINI_AI_API_KEY` | API/worker | Só quando IA autorizada/habilitada; segredo |
 | `LUMINI_AI_CLASSIFIER_MODEL` | API/worker | Só quando IA autorizada/habilitada |
+| `LUMINI_AI_CLASSIFIER_PROVIDER` | API/worker | `openai` preserva adaptador existente; `jev` usa API estruturada separada; padrão `openai` |
+| `LUMINI_JEV_API_KEY` | API/worker | Chave Jev só pelo gerenciador de segredos; nenhuma chave criada/obtida |
+| `LUMINI_JEV_MODEL` | API/worker | Modelo real descoberto por `/v1/models` autenticado; nenhum default inventado |
 | `LUMINI_AI_WRITER_MODEL` | API/worker | Só quando IA autorizada/habilitada |
 | `LUMINI_DEPENDENCY_TIMEOUT_SECONDS` | API/worker | Opcional: padrão existente 2 s |
 | `LUMINI_AI_HIGH_CONFIDENCE` | API/worker | Opcional: padrão existente não calibrado |
@@ -98,11 +110,11 @@ Referências: [configuração Railway](https://docs.railway.com/config-as-code),
 
 ## GitHub e domínio
 
-Conector GitHub de leitura está autenticado como `cdzaorib`, sem repositório Lumini encontrado nessa conta. A superfície disponível não tem operação para criar repositório. O CLI `gh` informou credencial inválida também fora do sandbox. O navegador recusou acesso a `github.com` pela política de permissão; esse bloqueio não foi contornado. O usuário foi orientado a concluir `gh auth login -h github.com` **fora do chat**, sem enviar token.
+GitHub CLI e conector agora autenticados como `cdzaorib`. Repositório público exclusivo `cdzaorib/lumini` criado vazio e histórico enviado sem force push. Baseline T12 passou no CI remoto. Nenhum novo login/token manual GitHub é necessário nesta retomada. Navegador indisponível é uma limitação distinta, que impede as etapas de dashboard dos demais fornecedores.
 
-Após autenticação: conferir que `cdzaorib/lumini` está disponível; criar público e **vazio**, sem README/commit inicial, associar remote e fazer push de `main` com todos os commits existentes. Conferir write access e o remote antes; nunca force push. Conectar esse repositório ao projeto Vercel já criado e usar `main` como Production Branch. Não criar outro projeto Vercel.
+Remote `origin` já aponta a `https://github.com/cdzaorib/lumini.git`; main segue origin/main. Conferir estado antes de novos pushes; nunca force push. Conectar esse repositório ao projeto Vercel existente e usar `main` como Production Branch; até isso, acionar deployments explícitos pelo commit GitHub.
 
-Primeiro validar o domínio `.vercel.app` que a Vercel realmente atribuir. Nenhum domínio próprio Lumini estava associado ao novo projeto na criação; nada foi comprado ou alterado. Para futuro `lumini.com.br`: **Vercel → lumini → Settings → Domains**, adicionar `lumini.com.br` e `www.lumini.com.br`, escolher o canônico, copiar exatamente o registro **A** do apex e o **CNAME** de `www` mostrados pelo projeto para o provedor DNS, preservar MX/TXT existentes, aguardar verificação/HTTPS; atualizar origens Google/CORS e `LUMINI_PUBLIC_SITE_URL`, redeploy e testar redirects. Não presumir IP/CNAME de outro projeto.
+`.vercel.app` real validado com proteção SSO mantida; nenhum domínio próprio confirmado/adquirido. Para futuro domínio **já pertencente à clínica**, em Vercel → lumini → Settings → Domains adicionar apex/www autorizados, escolher canônico e copiar exatamente A/CNAME mostrados para o provedor DNS, preservando MX/TXT existentes. Aguardar verificação/HTTPS; atualizar Google/CORS/origem pública, redeploy e testar redirects. `lumini.com.br` é apenas exemplo histórico, não afirma disponibilidade/propriedade. Nenhuma compra autorizada.
 
 Referência: [adicionar domínio Vercel](https://vercel.com/docs/domains/working-with-domains/add-a-domain).
 
@@ -118,3 +130,9 @@ Referência: [adicionar domínio Vercel](https://vercel.com/docs/domains/working
 - E2E: resultado final e limitações serão registrados em `TAREFAS.md`/`HANDOFF.md` ao encerrar a validação.
 
 Testes não validam fornecedores reais. Login Google é stub, Google Calendar em memória, Evolution simulado, IA desligada. Não há smoke test de produção sem deploy. Após publicação, validar home, navegação, catálogo, assets, formulário e escrita/leitura controlada no Supabase via FastAPI, login Google real/logout/rotas protegidas, agenda/autoatendimento e console/HTTP sem falhas. Usar dados sintéticos de teste controlado, sem rodar E2E destrutivo em produção.
+
+## Bancada IA e mídia antes da habilitação real
+
+Jev agora tem cliente próprio, contrato verificado; IA continua desligada. Chaves/modelos configurados por ambiente de processo/gerenciador, rodar no backend `uv run --frozen python -m lumini.ai.evaluation --label <candidato>`; a CLI habilita chamadas apenas para essa bancada sintética, sem alterar a aplicação. Preços verificados por modelo via `--price MODEL INPUT OUTPUT` (USD por milhão de tokens); falta de preço/usage aparece como custo incompleto. Comparação offline `--compare <relatorios-numericos>`; revisar segurança/minimização/qualidade/latência e escolher fallback antes de habilitar runtime. Nunca registrar prompts/respostas ou usar clientes reais na bancada.
+
+Fotos exigem storage/CDN exclusivo escolhido pela clínica, URLs públicas sem segredo, dimensões/alt e autorização registrada no painel. Configurar a origem nas duas allowlists e submeter a revisão global por todas as profissionais verificadas. Nenhum upload/conta/storage de outro projeto foi reutilizado. Meta Pixel tem somente parser de configuração, **sem tag/runtime**; ativação futura exige campanha e consentimento separado, com contrato oficial verificado. Não adicionar variáveis Meta à nuvem como se produzissem uma integração ativa.

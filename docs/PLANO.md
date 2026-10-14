@@ -50,7 +50,7 @@ Coleta: nome, telefone, cidade/bairro, interesse, procedimento, preferência de 
 
 - Frontend/painel: Next.js/TypeScript/Tailwind, Vercel.
 - Backend: Python/FastAPI/Pydantic, SQLAlchemy/Alembic, uv, pytest/Ruff/mypy.
-- API e worker: Railway; PostgreSQL Railway; Redis/Celery; worker no mesmo pacote backend.
+- API e worker: Railway; PostgreSQL Supabase (ADR-019, escolha posterior aprovada); Redis/Celery; worker no mesmo pacote backend.
 - WhatsApp: Evolution QR/Baileys, número dedicado, alerta de desconexão e reconexão manual restrita. Adapter pronto para futura API oficial. Risco operacional do QR foi aceito; site deve seguir disponível nas quedas.
 - IA: DeepSeek conversacional + Jev classificatório, adaptadores e fallback a selecionar.
 - Google Calendar; storage de mídia desacoplado; desenvolvimento e produção separados.

@@ -1,5 +1,23 @@
 # Decisões técnicas
 
+## ADR-020 — Consentimento e medição mínima na landing (2026-10-14)
+
+O plano exige analytics somente após consentimento. Medição opcional de pageview usa Events API do Plausible, sem dependência ou script de autocaptura: apenas `/`, com URL canônica sem query/fragmento e sem Referer/cookies/propriedades enviados pela aplicação. O domínio é configuração da clínica, sem criação/assinatura automática de serviço. Recusar/revogar impede chamadas futuras, inclusive após reload ou em outras abas; erro de persistência não restaura consentimento antigo. Rotas de painel, atendimento, reservas e legais não emitem eventos. A transmissão de IP/headers inerentes à conexão com o fornecedor deverá constar da revisão jurídica antes da configuração real.
+
+Meta Pixel continua sem execução; configuração validada é apenas preparação, não integração concluída. Campanha/consentimento de marketing e contrato oficial precisam ser verificados antes de implementar/habilitar o runtime. Referência técnica consultada: https://plausible.io/docs/events-api.
+
+## ADR-021 — Jev estruturado e escolha de fallback por evidência (2026-10-14)
+
+Jev não usa chat/completions: o contrato oficial System One foi verificado e tem cliente próprio, chave/modelo explícitos e respostas validadas, separado do redator DeepSeek. Serviços precisam estar no catálogo conhecido; falha/retorno inválido não abre acesso a regras, banco ou calendário. O classificador usa a confiança retornada, e o mínimo entre intenção/serviço quando ambos são necessários; isso não prova calibração. IA continua desligada até revisão da minimização e bancada real. Benchmark ampliado mede classificador+redator e compara candidatos sem guardar textos nem escolher fornecedor automaticamente. Fallback de modelo só pode ser escolhido após essa medição; o fallback determinístico aprovado continua vigente. Fonte: https://api.typesafe.ai/openapi.json.
+
+## ADR-022 — Revisão global do site e retirada conservadora (2026-10-14)
+
+FAQ e conteúdo do Site não têm área clínica por item: exige aprovação de todas as profissionais verificadas, cada uma autenticada e atribuída no backend, mais publicação explícita. Uma mudança de conteúdo ou de credencial invalida as aprovações; reverificação não repõe publicação. Salvar/retirar e invalidar catálogo descarta replies pendentes e incrementa versões de conversas sem mudar modo, impedindo resposta antiga já persistida ou ainda gerada de sair após retirada. Notificações são remontadas do estado/conteúdo atual; não há garantia distribuída de desfazer envio já em andamento. Regras de saúde/STOP/reserva/sinal/links/aftercare continuam determinísticas. Mídia por URLs autorizadas com origens explícitas, Next sem redirects e sem storage acoplado.
+
+## ADR-023 — Histórico estruturado sem transcrição (2026-10-14)
+
+Eventos de progresso/mudança de modo guardam apenas etapa conhecida e IDs de serviço/profissional; não resumo livre gerado por modelo, nomes/telefones ou texto clínico. Métricas de encaminhamento são eventos WhatsApp desde 0010; histórico de sessão web acompanha a retenção de 1 dia e não é usado para totais incompletos de períodos maiores. API de histórico continua administrativa/no-store, sem criar caixa de atendimento humano no painel. Retenção WhatsApp/agendamentos/financeiro depende da política da clínica antes do lançamento.
+
 ## ADR-019 — Hospedagem Vercel, Supabase PostgreSQL e Railway (2026-10-06)
 
 O usuário autorizou preparar/publicar a Lumini e esclareceu que este checkout deve preservar FastAPI, Celery/Redis e o login Google. Supabase passa a ser o provedor do PostgreSQL; frontend na Vercel, API/worker/Redis no Railway. Isso substitui somente a escolha de provedor PostgreSQL dos planos anteriores; não migra a autorização para Supabase Auth nem reimplementa regras no Data API. Supabase Storage não é usado atualmente.
