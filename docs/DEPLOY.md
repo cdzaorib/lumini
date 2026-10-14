@@ -53,9 +53,13 @@ Variáveis realmente lidas pelo frontend (as marcadas pendentes **não foram pre
 
 ## Supabase: configuração antes das migrações
 
-Criação de projeto exclusivo `lumini` autorizada pelo usuário; ainda depende de confirmar organização e custo pelo conector. Não reutilizar os projetos de outros produtos listados na conta. A única organização acessível nesta auditoria é `relatorio de passagens` (`afuprpdipwmfssxmlcdq`); a escolha está pendente, não presumida.
+Criação de projeto exclusivo `lumini` autorizada pelo usuário. Em T14d o usuário escolheu **criar uma organização nova**. Parâmetros operacionais para execução: nome **Lumini**, plano **Free**, sem reutilizar a organização existente `relatorio de passagens` (`afuprpdipwmfssxmlcdq`) nem projetos de outros produtos. A escolha está resolvida; a organização ainda não existe no inventário acessível.
 
-Após criação, fazer nesta ordem:
+O conector instalado não oferece criação de organização; navegador CUA indisponível, CLI Supabase ausente e `SUPABASE_ACCESS_TOKEN` ausente no ambiente. Tarefa manual: [criar a organização no painel](https://supabase.com/dashboard/new), nome **Lumini**, plano **Free**, conforme o [fluxo oficial](https://supabase.com/docs/guides/troubleshooting/keeping-free-projects-after-pro-upgrade-Kf9Xm2). Alternativa quando houver API autenticada própria: [POST `/v1/organizations`](https://supabase.com/docs/reference/api/v1-create-an-organization), nome obrigatório e permissão `organizations_create`. Não extrair autenticação do conector nem solicitar tokens no chat.
+
+Após a criação, listar organizações para obter o ID real, consultar quota/custo pelo conector e obter a confirmação de custo exigida antes de criar o projeto em `sa-east-1`. A [quota Free](https://supabase.com/docs/guides/platform/billing-on-supabase) é por usuário entre organizações em que é Owner/Admin; abrir outra organização não garante uma vaga adicional. Nenhuma compra/upgrade, custo aceito ou ID fictício nesta tarefa.
+
+Após criação do projeto, fazer nesta ordem:
 
 1. Confirmar o project ref e a região São Paulo (`sa-east-1`), sem modificar projetos existentes.
 2. Em **Integrations → Data API**, desligar **Enable Data API**: toda leitura/escrita passa pelo FastAPI. Confirmar que os endpoints REST não expõem as tabelas. Verificar grants a `anon`/`authenticated` e advisors antes de liberar a API.

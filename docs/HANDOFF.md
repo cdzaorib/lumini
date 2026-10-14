@@ -1,6 +1,6 @@
 # Handoff Lumini — atualizado a cada tarefa
 
-Atualizado em **2026-10-14 — T12a/T12b e T13a–T13d concluídas localmente; lançamento depende de acessos e insumos externos** (Codex).
+Atualizado em **2026-10-14 — T14d: nova organização Supabase autorizada; criação bloqueada por falta de acesso operacional** (Codex).
 
 O escopo é o texto integral aprovado em `PLANO-ORIGINAL.md`. Preservar **Python/FastAPI, Celery/Redis e login Google**; frontend Vercel, PostgreSQL Supabase e API/worker/Redis Railway (ADR-019). Produção, GitHub público e push já autorizados; acesso a redes/contas autorizado nesta retomada. Nenhuma compra/upgrade autorizado. IDE **VS Code**; interpretador `backend/.venv/bin/python`. Não usar dados/infraestrutura/segredos de outros projetos.
 
@@ -17,10 +17,10 @@ A afirmação antiga de que todo código estava pronto foi corrigida pela audito
 
 ## Pendências exatas e próximo passo
 
-**Lista executável: `PENDENCIAS.md`.** Primeiro resolver conexão Railway e escolha explícita da organização/custo Supabase; depois provisionar Lumini exclusivo e seguir `DEPLOY.md`. É possível retomar a publicação já autorizada quando esses acessos estiverem disponíveis. Não reabrir produto/stack nem pedir tokens no chat.
+**Lista executável: `PENDENCIAS.md`.** Primeiro resolver conexão Railway e criar a nova organização Supabase **Lumini**, já autorizada pelo usuário; depois consultar quota/custo, confirmar o custo exigido pelo conector e provisionar o projeto exclusivo em São Paulo conforme `DEPLOY.md`. A escolha da organização foi respondida e não precisa ser solicitada novamente. Não reabrir produto/stack nem pedir tokens no chat.
 
 1. **Railway:** plugin instalado/desconectado (`USER_NOT_LOGGED_IN`); nenhum token/serviço Lumini. Conectar conta em Apps/Plugins, conferir workspace/plano antes de criar API/worker/Redis.
-2. **Supabase:** conectado, sem Lumini; organização acessível `relatorio de passagens` (`afuprpdipwmfssxmlcdq`, Free). Conector exige organização escolhida e custo consultado/confirmado; não presumir quota/preço, apagar ou reutilizar outros bancos.
+2. **Supabase:** conectado, sem organização/projeto Lumini. Usuário autorizou **criar uma organização nova**; não escolheu a existente `relatorio de passagens` (`afuprpdipwmfssxmlcdq`, Free). Conector disponível não oferece criação de organização; navegador continua sem superfícies e não há `SUPABASE_ACCESS_TOKEN` no ambiente. Tarefa manual executável: [abrir criação de organização](https://supabase.com/dashboard/new), nome **Lumini**, plano **Free**. Após criação, redescobrir a organização pelo conector e consultar quota/custo antes de criar `lumini` em `sa-east-1`. Nova organização não aumenta automaticamente a quota de projetos Free por usuário; não apagar/pausar/reutilizar outros bancos.
 3. **Navegador:** CUA sem superfícies; Chrome e navegador integrado indisponíveis. Não foi possível operar Google Cloud/QR/DNS ou conectar Git na Vercel por dashboard. Autorização de acesso não disponibiliza sessão autenticada.
 4. **Clínica/provedores:** Google OAuth/allowlist/atribuições e conta de serviço/calendários; Evolution/número de teste/PoC; chaves/modelos/bancada IA; matriz/preços/sinais/credenciais profissionais/contatos/endereço/horários/Pix/textos e fotos/depoimentos autorizados; storage/CDN próprio.
 5. **Antes de abrir:** políticas/retenção jurídica, backups reais e restauração isolada, teste com leitor de tela/desempenho publicado, piloto e aprovação final clínica. IA permanece desligada até a avaliação. Base44 permanece como entrada até fluxo completo aprovado.
@@ -50,4 +50,10 @@ Retomada automática conferiu `main` limpa em e8b841a, sem processos de teste at
 
 ## Bloqueio externo confirmado — T14c
 
-Terceira rodada consecutiva do objetivo confirmou as mesmas dependências: Railway desconectado, Supabase sem projeto Lumini/escolha de organização respondida e nenhum navegador disponível. `main` dafab23 estava limpa e sincronizada; CI da auditoria **38579628267 success**, sem processos locais de teste. Não há operação de lançamento executável sem conexão/insumos reais. O objetivo integral deve ficar **bloqueado**, nunca marcado concluído por frontend protegido/testes sintéticos. Para retomar: responder à escolha da organização Supabase e conectar Railway/navegador; seguir PENDENCIAS/DEPLOY, mantendo todos os requisitos obrigatórios e as autorizações já concedidas.
+Terceira rodada consecutiva do objetivo confirmou as mesmas dependências: Railway desconectado, Supabase sem projeto Lumini e ainda sem resposta à escolha de organização, nenhum navegador disponível. `main` dafab23 estava limpa e sincronizada; CI da auditoria **38579628267 success**, sem processos locais de teste. Não há operação de lançamento executável sem conexão/insumos reais. O objetivo integral foi registrado como **bloqueado**, nunca concluído por frontend protegido/testes sintéticos. A escolha da organização foi respondida posteriormente em T14d; persistem a falta de acesso operacional para criá-la e os demais itens de PENDENCIAS/DEPLOY.
+
+## Nova organização Supabase autorizada — T14d
+
+Resposta do usuário: **“pode criar uma nova”**. Investigação autenticada por conector confirmou somente a organização preexistente, sem Lumini; inventário CUA vazio, CLI Supabase ausente e variável de token ausente. A [API oficial](https://supabase.com/docs/reference/api/v1-create-an-organization) tem `POST /v1/organizations`, nome obrigatório e autenticação PAT/OAuth com permissão `organizations_create`, mas essa operação não está exposta pelo conector instalado. Não usar credenciais do conector por fora das ferramentas nem infraestrutura de outro produto.
+
+O [caminho oficial no painel](https://supabase.com/docs/guides/troubleshooting/keeping-free-projects-after-pro-upgrade-Kf9Xm2) é criar a organização em `https://supabase.com/dashboard/new`, nome **Lumini**, plano **Free**. Isso está autorizado, mas **não foi executado** por falta de navegador/API autenticada utilizável. Nenhum ID de organização, projeto, custo aceito ou banco criado. Após a criação externa, listar organizações pelo conector, consultar quota/custo e seguir DEPLOY; não pedir novamente a escolha já respondida. Sem alteração de código ou repetição dos testes de aplicação para esta atualização documental.
