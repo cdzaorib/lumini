@@ -14,6 +14,7 @@ from lumini.settings import Settings
 from lumini.whatsapp import flow
 from lumini.whatsapp.conversations import SendResult, send_automatic, set_mode
 from lumini.whatsapp.evolution import WhatsAppSender
+from lumini.whatsapp.history import remember
 
 
 @dataclass(frozen=True)
@@ -75,11 +76,13 @@ async def handle(
         )
         if conversation is None or conversation.version != version or conversation.mode != "bot":
             return "skipped_stale"  # a newer message or the team took over meanwhile
-        conversation.state = reply.state
         if reply.opt_out:
             conversation.marketing_opt_out_at = now
         if reply.handoff is not None:
             set_mode(conversation, "human", reply.handoff, now)
+        conversation.state = reply.state
+        if reply.handoff is None:
+            remember(session.sync_session, conversation, "progress", now)
         send_version = conversation.version
     return await send_automatic(
         session,

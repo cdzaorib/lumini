@@ -680,9 +680,18 @@ async def test_model_calls_are_accounted_without_text(channel: Channelled) -> No
     }
 
 
-async def test_deposit_instructions_come_from_the_panel_when_filled(channel: Channelled) -> None:
+async def test_deposit_instructions_require_explicit_site_review(channel: Channelled) -> None:
     from lumini.auth import AdminPrincipal
-    from lumini.site.service import SiteContent, SiteUpdate, put_site
+    from lumini.site.service import (
+        SiteContent,
+        SitePublish,
+        SiteUpdate,
+        approve_site,
+        publish_site,
+        put_site,
+    )
+
+    actor = AdminPrincipal("s", "s@example.invalid", (channel.world.professional_id,))
 
     booking = await held(channel.world, local(TUESDAY, 10), phone=PHONE)
     async with channel.sessions() as session:
@@ -694,7 +703,7 @@ async def test_deposit_instructions_come_from_the_panel_when_filled(channel: Cha
     async with channel.sessions() as session:
         await put_site(
             session,
-            AdminPrincipal(subject="s", email="s@example.invalid", reviewer_professional_ids=()),
+            actor,
             SiteUpdate(
                 expected_revision=0,
                 content=SiteContent(deposit_instructions="Pix sintético: chave-ficticia-123"),
@@ -704,4 +713,120 @@ async def test_deposit_instructions_come_from_the_panel_when_filled(channel: Cha
         notifier = WhatsAppNotifier(session, channel.sender, channel.app.state.settings, now=NOW)
         assert await notifier.send("deposit_instructions", other.id) is None
     last = channel.sender.texts()[-1]
+    assert "chave-ficticia" not in last and last.startswith("Sobre o sinal")
+    async with channel.sessions() as session:
+        review = SitePublish(
+            expected_revision=1,
+            professional_id=channel.world.professional_id,
+            review_confirmed=True,
+        )
+        await approve_site(session, actor, review, now=NOW, media_origins=[])
+        await publish_site(session, actor, review, now=NOW, media_origins=[])
+    final = await held(channel.world, local(TUESDAY, 18), phone=PHONE)
+    async with channel.sessions() as session:
+        notifier = WhatsAppNotifier(session, channel.sender, channel.app.state.settings, now=NOW)
+        assert await notifier.send("deposit_instructions", final.id) is None
+    last = channel.sender.texts()[-1]
     assert "chave-ficticia-123" in last and "comprovante não confirma sozinho" in last
+
+
+async def test_only_published_operational_copy_is_used_and_guardrails_stay_fixed(
+    channel: Channelled,
+) -> None:
+    from lumini.auth import AdminPrincipal
+    from lumini.site.service import (
+        SiteContent,
+        SitePublish,
+        SiteUpdate,
+        approve_site,
+        publish_site,
+        put_site,
+    )
+
+    actor = AdminPrincipal("s", "s@example.invalid", (channel.world.professional_id,))
+    async with channel.sessions() as session:
+        await put_site(
+            session,
+            actor,
+            SiteUpdate(
+                expected_revision=0,
+                content=SiteContent(
+                    bot_texts={
+                        "menu": "Saudação sintética aprovada.\n{options}",
+                        "handoff": "A equipe continuará seu atendimento por aqui.",
+                    },
+                ),
+            ),
+            now=NOW,
+        )
+    assert await channel.say("oi") == texts.MENU
+    async with channel.sessions() as session:
+        review = SitePublish(
+            expected_revision=1,
+            professional_id=channel.world.professional_id,
+            review_confirmed=True,
+        )
+        await approve_site(session, actor, review, now=NOW, media_origins=[])
+        await publish_site(session, actor, review, now=NOW, media_origins=[])
+    menu = await channel.say("menu")
+    assert menu.startswith("Saudação sintética aprovada") and "3. Falar com a equipe" in menu
+    assert await channel.say("equipe") == "A equipe continuará seu atendimento por aqui."
+    assert (await channel.conversation()).mode == "human"
+    await channel.post(channel.payload("#bot", from_me=True))
+    assert await channel.say("STOP") == texts.OPT_OUT
+    assert await channel.say("estou grávida") == texts.HEALTH_HANDOFF
+
+
+@pytest.mark.parametrize("action", ["edit", "withdraw"])
+async def test_outage_cannot_retry_a_reply_after_site_review_is_withdrawn(
+    channel: Channelled,
+    action: str,
+) -> None:
+    from lumini.auth import AdminPrincipal
+    from lumini.site.service import (
+        SiteContent,
+        SitePublish,
+        SiteUpdate,
+        SiteVersion,
+        approve_site,
+        publish_site,
+        put_site,
+        unpublish_site,
+    )
+
+    actor = AdminPrincipal("s", "s@example.invalid", (channel.world.professional_id,))
+    content = SiteContent(bot_texts={"menu": "Saudação sintética que será retirada.\n{options}"})
+    async with channel.sessions() as session:
+        await put_site(session, actor, SiteUpdate(expected_revision=0, content=content), now=NOW)
+        review = SitePublish(
+            expected_revision=1,
+            professional_id=channel.world.professional_id,
+            review_confirmed=True,
+        )
+        await approve_site(session, actor, review, now=NOW, media_origins=[])
+        await publish_site(session, actor, review, now=NOW, media_origins=[])
+    channel.sender.unavailable = 1
+    assert await channel.say("oi") == ""
+    async with channel.sessions() as session, session.begin():
+        queued = await session.scalar(
+            select(WhatsAppMessage).where(WhatsAppMessage.status == "failed")
+        )
+        assert queued is not None and queued.body is not None
+        assert "Saudação sintética que será retirada" in queued.body
+    async with channel.sessions() as session:
+        if action == "edit":
+            await put_site(
+                session, actor, SiteUpdate(expected_revision=1, content=SiteContent()), now=NOW
+            )
+        else:
+            await unpublish_site(session, actor, SiteVersion(expected_revision=1))
+        assert (
+            await retry_failed_replies(session, channel.sender, now=NOW + timedelta(seconds=20))
+            == 0
+        )
+    assert channel.sender.sent == []
+    async with channel.sessions() as session, session.begin():
+        remaining = await session.scalar(
+            select(WhatsAppMessage).where(WhatsAppMessage.id == queued.id)
+        )
+        assert remaining is not None and remaining.status == "skipped" and remaining.body is None

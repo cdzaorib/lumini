@@ -42,6 +42,7 @@ from lumini.catalog.schemas import PublicService
 from lumini.catalog.service import list_public_services
 from lumini.leads.service import brazilian_phone
 from lumini.models import Service
+from lumini.site.service import approved_content
 from lumini.whatsapp import texts
 
 DAYS_AHEAD = 14
@@ -163,6 +164,15 @@ def local_route(text: str) -> str | None:
 
 
 async def step(ctx: Context, state: dict[str, Any], text: str | None) -> Reply:
+    reply = await _step(ctx, state, text)
+    # Health and opt-out replies stay fixed; only exact operational replies are editable.
+    if reply.handoff != "health_condition" and not reply.opt_out:
+        content = await approved_content(ctx.session)
+        reply.text = texts.customize_reply(reply.text, content.bot_texts)
+    return reply
+
+
+async def _step(ctx: Context, state: dict[str, Any], text: str | None) -> Reply:
     if text is None or not text.strip():
         return Reply(texts.NON_TEXT, state)
     plain = normalize(text)

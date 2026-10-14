@@ -102,7 +102,7 @@ export function MetricsSection({ query, busy }: { query: Query; busy: boolean })
             <Breakdown title="Pedidos de contato por situação" items={metrics.leads_by_status} empty="Nenhum pedido no período." />
             <Breakdown title="Cancelamentos" items={metrics.cancellations} empty="Nenhum cancelamento no período." />
             <Breakdown title="Reservas expiradas" items={metrics.expired} empty="Nenhuma expiração no período." />
-            <Breakdown title="Conversas com a equipe (motivo)" items={metrics.handoffs_by_reason} empty="Nenhuma conversa passada para a equipe." />
+            <Breakdown title="Encaminhamentos no WhatsApp (motivo)" items={metrics.handoffs_by_reason} empty="Nenhum encaminhamento no WhatsApp no período." />
           </div>
           <p className={ui.hint}>Contagens sem dados pessoais. Faltas dependem da marcação de comparecimento em cada reserva.</p>
         </>

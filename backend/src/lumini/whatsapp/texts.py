@@ -3,6 +3,8 @@ may not. They never carry clinical advice, invented prices, payment keys or phon
 facts come only from the approved, published catalog.
 """
 
+import re
+from collections.abc import Mapping
 from datetime import datetime
 from decimal import Decimal
 
@@ -132,3 +134,88 @@ NOTIFICATIONS = {
         "clínica vai falar com você por aqui."
     ),
 }
+
+# Clinic-editable operational copy only. Health, consent, reservation/payment rules,
+# self-service limits and approved clinical aftercare remain fixed in code/catalog.
+# Menu choices are injected from the deterministic flow, never from a custom template.
+OPERATIONAL = {
+    "menu": "Olá! Este é o atendimento automático da Lumini Estética e Saúde.\n{options}",
+    "not_understood": NOT_UNDERSTOOD,
+    "handoff": HANDOFF,
+    "non_text": NON_TEXT,
+    "calendar_down": CALENDAR_DOWN,
+    "no_slots": NO_SLOTS,
+    "ask_name": ASK_NAME,
+    "bad_name": BAD_NAME,
+    **{
+        key: NOTIFICATIONS[key]
+        for key in ("booking_confirmed", "booking_cancelled", "reminder_24h", "reminder_2h")
+    },
+}
+OPERATIONAL_LABELS = {
+    "menu": "Saudação e menu",
+    "not_understood": "Opção não entendida",
+    "handoff": "Encaminhamento para a equipe",
+    "non_text": "Mensagem sem texto",
+    "calendar_down": "Agenda indisponível",
+    "no_slots": "Sem horários disponíveis",
+    "ask_name": "Pedido do nome para a reserva",
+    "bad_name": "Nome em formato inválido",
+    "booking_confirmed": "Agendamento confirmado",
+    "booking_cancelled": "Reserva cancelada",
+    "reminder_24h": "Lembrete de 24 horas",
+    "reminder_2h": "Lembrete de duas horas",
+}
+_PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
+
+
+def placeholders(template: str) -> set[str]:
+    return set(_PLACEHOLDER.findall(template))
+
+
+def validate_operational(key: str, template: str) -> None:
+    """Only exact, required placeholders: no attributes, indexing, conversion or format specs."""
+    original = OPERATIONAL.get(key)
+    if original is None:
+        raise ValueError("Unknown operational message")
+    remaining = _PLACEHOLDER.sub("", template)
+    if "{" in remaining or "}" in remaining or placeholders(template) != placeholders(original):
+        raise ValueError("Use exactly the required message placeholders")
+    if not template.strip() or len(template) > 1000:
+        raise ValueError("Operational message must contain 1 to 1000 characters")
+
+
+def render(template: str, values: Mapping[str, str]) -> str:
+    """Single-pass literal substitution. Values containing braces are never interpreted."""
+    return _PLACEHOLDER.sub(lambda match: values[match.group(1)], template)
+
+
+def operational(
+    key: str, overrides: Mapping[str, str], values: Mapping[str, str] | None = None
+) -> str:
+    template = overrides.get(key, OPERATIONAL[key])
+    validate_operational(key, template)
+    return render(template, values or {})
+
+
+def customize_reply(text: str, overrides: Mapping[str, str]) -> str:
+    # Exact matches keep clinical replies and dynamically assembled booking rules untouched.
+    if text == MENU:
+        options = "Responda com o número da opção:\n" + numbered(
+            ["Conhecer os procedimentos", "Agendar um horário", "Falar com a equipe"]
+        )
+        if "menu" in overrides:
+            options = "Este é o atendimento automático da Lumini Estética e Saúde.\n" + options
+        return operational("menu", overrides, {"options": options})
+    for key in (
+        "not_understood",
+        "handoff",
+        "non_text",
+        "calendar_down",
+        "no_slots",
+        "ask_name",
+        "bad_name",
+    ):
+        if text == OPERATIONAL[key]:
+            return operational(key, overrides)
+    return text

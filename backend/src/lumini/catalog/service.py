@@ -34,7 +34,9 @@ from lumini.models import (
     ProfessionalService,
     Service,
     ServiceApproval,
+    SiteSettings,
 )
+from lumini.whatsapp.conversations import discard_pending_replies
 
 # Low-volume administrative writes are serialized so credential changes, edits and
 # publication never interleave. Booking/agenda paths must not reuse this lock.
@@ -175,6 +177,7 @@ async def update_professional(
     item.credentials_verified_by = None
     _audit(session, actor, "professional", item.id, "professional.updated", item.revision)
     await _invalidate_linked_services(session, actor, item.id)
+    await _invalidate_site_review(session, actor)
     await session.flush()
     return _professional_view(item)
 
@@ -196,6 +199,7 @@ async def verify_professional(
     item.credentials_verified_at = _now()
     item.credentials_verified_by = actor.subject
     _audit(session, actor, "professional", item.id, "professional.verified", item.revision)
+    await _invalidate_site_review(session, actor)
     await session.flush()
     return _professional_view(item)
 
@@ -215,11 +219,38 @@ async def revoke_professional(
         _audit(session, actor, "professional", item.id, "professional.revoked", item.revision)
     # Conservative even when already unverified: no linked service may stay approved.
     await _invalidate_linked_services(session, actor, item.id)
+    await _invalidate_site_review(session, actor)
     await session.flush()
     return _professional_view(item)
 
 
 # Services
+
+
+async def _invalidate_site_review(session: AsyncSession, actor: AdminPrincipal) -> None:
+    """A global site review cannot survive a change in the clinic's verified professionals.
+
+    Called under the catalog transaction lock, shared by site approvals/publication. Clearing
+    the persisted approval is necessary: a revoke/verify cycle does not increment revision.
+    """
+    row = await session.get(SiteSettings, 1, with_for_update=True, populate_existing=True)
+    if row is None or (row.published_revision is None and not row.approvals):
+        return
+    row.published_revision = None
+    row.published_by = None
+    row.published_at = None
+    row.reviewer_professional_id = None
+    row.reviewer_professional_revision = None
+    row.approvals = {}
+    await discard_pending_replies(session)
+    _audit(
+        session,
+        actor,
+        "site",
+        uuid.uuid5(uuid.NAMESPACE_URL, "lumini:site-settings"),
+        "site.invalidated",
+        row.revision,
+    )
 
 
 def _cents(value: Decimal | None) -> Decimal | None:
@@ -337,6 +368,7 @@ async def _reset_workflow(session: AsyncSession, item: Service) -> None:
     item.approved_at = None
     item.approved_by = None
     item.published_at = None
+    await discard_pending_replies(session)
 
 
 async def _invalidate_linked_services(

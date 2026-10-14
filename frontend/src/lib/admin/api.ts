@@ -47,7 +47,7 @@ const ADMIN_PATHS = [
   /^\/api\/admin\/(me|professionals|services)(\/[a-zA-Z0-9-]+)?(\/(verify|revoke|approve|publish|unpublish))?$/,
   new RegExp(`^/api/admin/professionals/${ID}/schedule$`),
   /^\/api\/admin\/integrations$/,
-  /^\/api\/admin\/site$/,
+  /^\/api\/admin\/site(\/(approve|publish|unpublish))?$/,
   /^\/api\/admin\/leads\?status=(new|contacted|converted|discarded)$/,
   new RegExp(`^/api/admin/leads/${ID}/status$`),
   /^\/api\/admin\/bookings\?scope=(upcoming|history)$/,
@@ -103,6 +103,10 @@ function str(value: unknown): string {
   return value;
 }
 function nullable(value: unknown): string | null { return value === null ? null : str(value); }
+function bool(value: unknown): boolean {
+  if (typeof value !== "boolean") throw new AdminApiError(0);
+  return value;
+}
 function integer(value: unknown): number {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) throw new AdminApiError(0);
   return value;
@@ -255,6 +259,22 @@ export function decodeSiteSettings(value: unknown): SiteSettings {
   const address = content.address === null ? null : row(content.address);
   return {
     revision: integer(data.revision),
+    status: oneOf(data.status, ["draft", "approved", "published"] as const),
+    published_at: nullable(data.published_at),
+    reviewer_professional_id: nullable(data.reviewer_professional_id),
+    eligible_reviewers: list(data.eligible_reviewers, (item) => {
+      const entry = row(item);
+      return { professional_id: str(entry.professional_id), display_name: str(entry.display_name), approved: bool(entry.approved) };
+    }),
+    required_reviewers: list(data.required_reviewers, (item) => {
+      const entry = row(item);
+      return { professional_id: str(entry.professional_id), display_name: str(entry.display_name), approved: bool(entry.approved) };
+    }),
+    media_origins: list(data.media_origins, str),
+    bot_text_options: list(data.bot_text_options, (item) => {
+      const entry = row(item);
+      return { key: str(entry.key), label: str(entry.label), default: str(entry.default), placeholders: list(entry.placeholders, str) };
+    }),
     content: {
       address: address && { street: str(address.street), city: str(address.city), maps_url: nullable(address.maps_url) },
       hours: list(content.hours, str), whatsapp: nullable(content.whatsapp), instagram: nullable(content.instagram),
@@ -265,6 +285,12 @@ export function decodeSiteSettings(value: unknown): SiteSettings {
         return { quote: str(entry.quote), author: str(entry.author), authorized_on: str(entry.authorized_on), authorization_confirmed: true as const };
       }),
       legal_contact: nullable(content.legal_contact), deposit_instructions: nullable(content.deposit_instructions),
+      photos: list(content.photos, (item) => {
+        const entry = row(item);
+        if (entry.authorization_confirmed !== true) throw new Error("Invalid photo authorization");
+        return { url: str(entry.url), alt: str(entry.alt), width: integer(entry.width), height: integer(entry.height), authorized_on: str(entry.authorized_on), authorization_confirmed: true as const };
+      }),
+      bot_texts: Object.fromEntries(Object.entries(row(content.bot_texts)).map(([key, value]) => [key, str(value)])),
     },
   };
 }

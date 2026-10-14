@@ -6,6 +6,8 @@ import { decodeSiteSettings } from "@/lib/admin/api";
 import type { Mutation, Query, SiteSettings } from "@/lib/admin/types";
 
 import { ui } from "./ui";
+import { SiteBotTexts } from "./site-bot-texts";
+import { SitePhotos, type PhotoDraft } from "./site-photos";
 
 type Content = SiteSettings["content"];
 type Faq = Content["faq"][number] & { key: number };
@@ -20,6 +22,8 @@ export function SiteContentSection({ mutate, query, busy }: { mutate: Mutation; 
   const [loads, setLoads] = useState(0);
   const [faq, setFaq] = useState<Faq[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [photos, setPhotos] = useState<PhotoDraft[]>([]);
+  const [dirty, setDirty] = useState(false);
   const [nextKey, setNextKey] = useState(0);
 
   useEffect(() => {
@@ -29,7 +33,9 @@ export function SiteContentSection({ mutate, query, busy }: { mutate: Mutation; 
       setSettings(found);
       setFaq(found.content.faq.map((item, index) => ({ ...item, key: index })));
       setQuotes(found.content.testimonials.map((item, index) => ({ ...item, key: index })));
-      setNextKey(found.content.faq.length + found.content.testimonials.length);
+      setPhotos(found.content.photos.map((item, index) => ({ ...item, key: index })));
+      setNextKey(found.content.faq.length + found.content.testimonials.length + found.content.photos.length);
+      setDirty(false);
     });
     return () => {
       ignore = true;
@@ -57,11 +63,27 @@ export function SiteContentSection({ mutate, query, busy }: { mutate: Mutation; 
         testimonials: quotes.map(({ quote, author, authorized_on }) => ({ quote, author, authorized_on, authorization_confirmed: true })),
         legal_contact: optional(text("legal_contact")),
         deposit_instructions: optional(text("deposit_instructions")),
+        photos: photos.map(({ url, alt, width, height, authorized_on }) => ({ url, alt, width, height, authorized_on, authorization_confirmed: true })),
+        bot_texts: Object.fromEntries(settings.bot_text_options.map(({ key }) => [key, text(`bot-${key}`).trim()]).filter(([, value]) => value)),
       },
     };
-    if (await mutate("/api/admin/site", "PUT", body, "Conteúdo do site salvo. O site mostra as mudanças em até 1 minuto.")) {
+    if (await mutate("/api/admin/site", "PUT", body, "Conteúdo do site salvo como rascunho. Aguarda revisão antes de aparecer no site e no atendimento.")) {
       setLoads((count) => count + 1);
     }
+  }
+
+  async function review(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!settings || dirty) return;
+    const data = new FormData(event.currentTarget);
+    if (data.get("review_confirmed") !== "on") return;
+    const action = ((event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null)?.value ?? "approve";
+    if (!['approve', 'publish'].includes(action)) return;
+    if (await mutate(`/api/admin/site/${action}`, "POST", {
+      expected_revision: settings.revision,
+      professional_id: String(data.get("professional_id")),
+      review_confirmed: true,
+    }, action === "approve" ? "Sua aprovação foi registrada. A publicação exige a revisão de todas as profissionais." : "Conteúdo revisado publicado no site e no atendimento.")) setLoads((count) => count + 1);
   }
 
   const field = (name: string, label: string, value: string | null | undefined, extra: Record<string, unknown> = {}) => (
@@ -75,10 +97,15 @@ export function SiteContentSection({ mutate, query, busy }: { mutate: Mutation; 
     <section aria-labelledby="site" className="flex flex-col gap-6">
       <h2 id="site" className="font-display text-2xl">Conteúdo do site</h2>
       <p className="max-w-prose text-sm leading-relaxed text-lumini-muted">
-        O que a clínica informa aqui aparece no site e no atendimento. Seções vazias ficam escondidas no site publicado.
+        As mudanças ficam em rascunho. Todas as profissionais verificadas precisam revisar antes da publicação no site e no atendimento. Seções vazias ficam escondidas.
         Publicidade em saúde não pode prometer resultados nem mostrar antes e depois; textos assim são recusados.
       </p>
-      <form key={settings.revision} onSubmit={save} className="flex flex-col gap-8">
+      <div className={ui.card}>
+        <p className="font-semibold">Revisão {settings.revision}: {settings.status === "published" ? "publicada" : settings.status === "approved" ? "aprovada, aguardando publicação" : "rascunho, aguardando aprovação"}</p>
+        {settings.required_reviewers.map((person) => <p key={person.professional_id} className={ui.hint}>{person.display_name}: {person.approved ? "revisão aprovada" : "aprovação pendente"}</p>)}
+        {!settings.required_reviewers.length && <p className={ui.hint}>Cadastre e verifique as credenciais das profissionais antes de aprovar o conteúdo.</p>}
+      </div>
+      <form key={settings.revision} onSubmit={save} onChange={() => setDirty(true)} className="flex flex-col gap-8">
         <fieldset className={`${ui.card} grid gap-4 sm:grid-cols-2`}>
           <legend className="px-1 font-semibold">Localização e contato</legend>
           {field("street", "Endereço (rua e número)", content.address?.street, { maxLength: 200 })}
@@ -109,7 +136,7 @@ export function SiteContentSection({ mutate, query, busy }: { mutate: Mutation; 
               <textarea id={`${id}-a-${item.key}`} value={item.answer} maxLength={1000} rows={3} className={ui.input}
                 onChange={(event) => setFaq((list) => list.map((entry) => (entry.key === item.key ? { ...entry, answer: event.target.value } : entry)))} />
               <div>
-                <button type="button" className={ui.secondary} onClick={() => setFaq((list) => list.filter((entry) => entry.key !== item.key))}>
+                <button type="button" className={ui.secondary} onClick={() => { setFaq((list) => list.filter((entry) => entry.key !== item.key)); setDirty(true); }}>
                   Remover pergunta {index + 1}
                 </button>
               </div>
@@ -117,7 +144,7 @@ export function SiteContentSection({ mutate, query, busy }: { mutate: Mutation; 
           ))}
           <div>
             <button type="button" className={ui.secondary} disabled={faq.length >= 20}
-              onClick={() => { setFaq((list) => [...list, { question: "", answer: "", key: nextKey }]); setNextKey((key) => key + 1); }}>
+              onClick={() => { setFaq((list) => [...list, { question: "", answer: "", key: nextKey }]); setNextKey((key) => key + 1); setDirty(true); }}>
               Adicionar pergunta
             </button>
           </div>
@@ -143,26 +170,50 @@ export function SiteContentSection({ mutate, query, busy }: { mutate: Mutation; 
                   onChange={(event) => setQuotes((list) => list.map((entry) => (entry.key === item.key ? { ...entry, authorized_on: event.target.value } : entry)))} />
               </div>
               <div>
-                <button type="button" className={ui.secondary} onClick={() => setQuotes((list) => list.filter((entry) => entry.key !== item.key))}>
+                <button type="button" className={ui.secondary} onClick={() => { setQuotes((list) => list.filter((entry) => entry.key !== item.key)); setDirty(true); }}>
                   Remover depoimento {index + 1}
                 </button>
               </div>
             </div>
           ))}
-          <AddQuote onAdd={(quote) => { setQuotes((list) => [...list, { ...quote, key: nextKey }]); setNextKey((key) => key + 1); }} disabled={quotes.length >= 10} />
+          <AddQuote onAdd={(quote) => { setQuotes((list) => [...list, { ...quote, key: nextKey }]); setNextKey((key) => key + 1); setDirty(true); }} disabled={quotes.length >= 10} />
         </fieldset>
+
+        <SitePhotos photos={photos} onChange={(items) => { setPhotos(items); setDirty(true); }} origins={settings.media_origins} nextKey={nextKey} onAdded={() => setNextKey((key) => key + 1)} />
+
+        <SiteBotTexts settings={settings} id={id} />
 
         <fieldset className={`${ui.card} flex flex-col gap-3`}>
           <legend className="px-1 font-semibold">Instruções do sinal</legend>
           <label htmlFor={`${id}-deposit`} className={ui.label}>Como pagar o sinal (ex.: chave Pix e titular)</label>
           <textarea id={`${id}-deposit`} name="deposit_instructions" rows={3} maxLength={1000} defaultValue={content.deposit_instructions ?? ""} className={ui.input} />
           <p className={ui.hint}>
-            Enviadas pelo WhatsApp logo depois da reserva. Nunca aparecem no site. Sem preencher, a mensagem diz que a equipe vai mandar os dados.
+            Enviadas pelo WhatsApp depois da reserva somente após a revisão e publicação. Nunca aparecem no site. Sem instruções aprovadas, a equipe manda os dados.
           </p>
         </fieldset>
 
         <div>
           <button type="submit" className={ui.button} disabled={busy}>Salvar conteúdo do site</button>
+        </div>
+      </form>
+      <form key={`review-${settings.revision}-${settings.status}`} onSubmit={review} className={`${ui.card} flex flex-col gap-4`}>
+        <h3 className="font-semibold">Revisão e publicação</h3>
+        {dirty && <p className={ui.hint}>Salve o rascunho antes de aprovar ou publicar.</p>}
+        <label htmlFor={`${id}-reviewer`} className={ui.label}>Profissional cuja área você pode revisar</label>
+        <select id={`${id}-reviewer`} name="professional_id" className={ui.input} required disabled={!settings.eligible_reviewers.length}>
+          {settings.eligible_reviewers.map((person) => <option key={person.professional_id} value={person.professional_id}>{person.display_name}</option>)}
+        </select>
+        {!settings.eligible_reviewers.length && <p className={ui.hint}>Sua conta não está atribuída à revisão de uma profissional com credenciais verificadas.</p>}
+        <label htmlFor={`${id}-review-confirmed`} className="flex items-start gap-3 text-sm">
+          <input id={`${id}-review-confirmed`} name="review_confirmed" type="checkbox" required className="mt-1 size-5" />
+          Revisei os textos da minha área, contatos, instruções, mensagens e autorizações de uso de imagem e depoimentos nesta revisão.
+        </label>
+        <div className="flex flex-wrap gap-3">
+          <button type="submit" name="action" value="approve" className={ui.secondary} disabled={busy || dirty || settings.revision === 0 || !settings.eligible_reviewers.length}>Aprovar minha revisão</button>
+          <button type="submit" name="action" value="publish" className={ui.button} disabled={busy || dirty || settings.status !== "approved" || !settings.eligible_reviewers.length}>Publicar conteúdo revisado</button>
+          {settings.status === "published" && <button type="button" className={ui.secondary} disabled={busy} onClick={async () => {
+            if (await mutate("/api/admin/site/unpublish", "POST", { expected_revision: settings.revision }, "Conteúdo retirado de publicação. Novas aprovações serão necessárias.")) setLoads((count) => count + 1);
+          }}>Retirar de publicação</button>}
         </div>
       </form>
     </section>

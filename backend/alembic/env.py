@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from alembic import context
 from lumini.models import Base
 from lumini.settings import Settings
+from lumini.whatsapp.history import ConversationEvent  # noqa: F401 - registers metadata
 
 target_metadata = Base.metadata
 

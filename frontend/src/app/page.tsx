@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { headers } from "next/headers";
 
@@ -106,6 +107,25 @@ export default async function HomePage() {
             <span className="light-caption">lumini</span>
           </div>
         </section>
+
+        {content.photos.length > 0 && (
+          <Section id="espaco" eyebrow="Lumini" title="A Lumini em imagens">
+            <ul className="grid items-start gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {content.photos.map((photo) => (
+                <li key={photo.url}>
+                  <Image
+                    src={photo.url}
+                    alt={photo.alt}
+                    width={photo.width}
+                    height={photo.height}
+                    sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 33vw"
+                    className="h-auto w-full border border-lumini-gold/40"
+                  />
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
 
         <Section id="procedimentos" eyebrow="Procedimentos" title="O que você procura?">
           {catalog === null ? (

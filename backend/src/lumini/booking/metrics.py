@@ -8,7 +8,8 @@ from sqlalchemy import Select, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lumini.booking.schemas import Count, MetricsView
-from lumini.models import Booking, Conversation, Lead, Service
+from lumini.models import Booking, Lead, Service
+from lumini.whatsapp.history import ConversationEvent
 
 _ORIGIN = case(
     (Booking.idempotency_key.startswith("wa:"), "whatsapp"),
@@ -110,9 +111,12 @@ async def collect(session: AsyncSession, *, now: datetime, days: int) -> Metrics
             )[:10],
             handoffs_by_reason=await _counts(
                 session,
-                select(Conversation.mode_reason, func.count())
-                .where(Conversation.mode == "human", Conversation.mode_changed_at >= since)
-                .group_by(Conversation.mode_reason),
+                select(ConversationEvent.reason, func.count())
+                .where(
+                    ConversationEvent.kind == "human",
+                    ConversationEvent.occurred_at >= since,
+                )
+                .group_by(ConversationEvent.reason),
             ),
             upcoming_confirmed_7d=await _scalar(
                 session,

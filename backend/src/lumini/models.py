@@ -473,16 +473,32 @@ class AICall(Base):
 
 
 class SiteSettings(Base):
-    """Single row of clinic facts edited in the panel: address, hours, WhatsApp, FAQ... and the
-    deposit instructions sent by the bot. Versioned; changes audited with ids only."""
+    """Versioned site/bot draft. Only an explicitly reviewed revision may be consumed."""
 
     __tablename__ = "site_settings"
     __table_args__ = (
         CheckConstraint("id = 1", name="ck_site_settings_single_row"),
         CheckConstraint("revision > 0", name="ck_site_settings_revision"),
+        CheckConstraint(
+            "(published_revision IS NULL AND published_by IS NULL AND published_at IS NULL "
+            "AND reviewer_professional_id IS NULL AND reviewer_professional_revision IS NULL) "
+            "OR (published_revision IS NOT NULL AND published_revision = revision "
+            "AND published_by IS NOT NULL "
+            "AND published_at IS NOT NULL AND reviewer_professional_id IS NOT NULL "
+            "AND reviewer_professional_revision IS NOT NULL)",
+            name="ck_site_settings_publication",
+        ),
     )
 
     id: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
     content: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     revision: Mapped[int] = mapped_column(Integer, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    published_revision: Mapped[int | None] = mapped_column(Integer)
+    published_by: Mapped[str | None] = mapped_column(String(255))
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewer_professional_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("professionals.id", ondelete="RESTRICT")
+    )
+    reviewer_professional_revision: Mapped[int | None] = mapped_column(Integer)
+    approvals: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")

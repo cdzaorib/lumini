@@ -138,6 +138,13 @@ export type Lead = {
 
 export type SiteSettings = {
   revision: number;
+  status: "draft" | "approved" | "published";
+  published_at: string | null;
+  reviewer_professional_id: string | null;
+  eligible_reviewers: { professional_id: string; display_name: string; approved: boolean }[];
+  required_reviewers: { professional_id: string; display_name: string; approved: boolean }[];
+  media_origins: string[];
+  bot_text_options: { key: string; label: string; default: string; placeholders: string[] }[];
   content: {
     address: { street: string; city: string; maps_url: string | null } | null;
     hours: string[];
@@ -148,5 +155,7 @@ export type SiteSettings = {
     testimonials: { quote: string; author: string; authorized_on: string; authorization_confirmed: true }[];
     legal_contact: string | null;
     deposit_instructions: string | null;
+    photos: { url: string; alt: string; width: number; height: number; authorized_on: string; authorization_confirmed: true }[];
+    bot_texts: Record<string, string>;
   };
 };

@@ -2,6 +2,7 @@
 import { chromium } from "playwright-core";
 
 const SITE = (process.env.E2E_SITE ?? "http://127.0.0.1:3100");
+const API = process.env.E2E_API ?? "http://127.0.0.1:8100";
 const steps = [];
 const problems = [];
 function step(name, ok, detail = "") {
@@ -46,16 +47,33 @@ try {
   await page.getByRole("button", { name: "Adicionar depoimento autorizado" }).click();
   await page.getByLabel("Depoimento 1").fill("Fui muito bem acolhida.");
   await page.getByLabel(/Como assinar/).fill("Cliente S., Mangaratiba");
+  await page.getByText("Encaminhamento para a equipe", { exact: true }).click();
+  await page.getByLabel("Texto personalizado: Encaminhamento para a equipe").fill("A equipe da Lumini continuará este atendimento por aqui.");
+  await page.getByText("Saudação e menu", { exact: true }).click();
+  await page.getByLabel("Texto personalizado: Saudação e menu").fill("Bem-vinda à Lumini.\n{options}");
+  step("foto exige autorização por escrito", await page.getByRole("button", { name: "Adicionar foto autorizada" }).isDisabled());
   await page.getByRole("button", { name: "Salvar conteúdo do site" }).click();
   await notice("Conteúdo do site salvo");
-  step("conteúdo salvo no painel", true);
+  step("conteúdo salvo como rascunho", true);
+  const pending = await (await fetch(`${API}/api/public/site`)).json();
+  step("rascunho não expõe FAQ, contato nem depoimentos", pending.faq.length === 0 && pending.testimonials.length === 0 && pending.whatsapp === null);
+  step("publicação exige aprovação prévia", await page.getByRole("button", { name: "Publicar conteúdo revisado" }).isDisabled());
+  await page.waitForFunction(() => [...document.querySelectorAll('button')].some((button) => button.textContent === "Aprovar minha revisão" && !button.disabled));
+  await page.getByLabel(/Revisei os textos da minha área/).check();
+  await page.getByRole("button", { name: "Aprovar minha revisão" }).click();
+  await notice("Sua aprovação foi registrada");
+  await page.waitForFunction(() => [...document.querySelectorAll('button')].some((button) => button.textContent === "Publicar conteúdo revisado" && !button.disabled));
+  await page.getByLabel(/Revisei os textos da minha área/).check();
+  await page.getByRole("button", { name: "Publicar conteúdo revisado" }).click();
+  await notice("Conteúdo revisado publicado");
+  step("aprovação e publicação explícitas pelo painel", true);
 
   let html = "";
-  for (let attempt = 0; attempt < 15; attempt += 1) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
     await page.goto(`${SITE}/`);
     html = await page.content();
     if (html.includes("Atendimento individual e acolhedor")) break;
-    await page.waitForTimeout(5000); // public content is cached for up to 60 s
+    await page.waitForTimeout(500);
   }
   const main = (await page.locator("main").textContent()).replace(/ /g, " ");
   step("diferenciais e depoimento no site", main.includes("Atendimento individual e acolhedor") && main.includes("Fui muito bem acolhida.") && main.includes("Cliente S., Mangaratiba"));
@@ -67,6 +85,22 @@ try {
   step("instruções do sinal nunca no site", !html.includes("chave-ficticia-e2e"));
   const jsonld = await page.locator('script[type="application/ld+json"]').evaluate((node) => ({ nonce: node.nonce, text: node.textContent }));
   step("dados estruturados de negócio local com nonce", jsonld.nonce.length > 10 && JSON.parse(jsonld.text).address.streetAddress === "Rua Sintética, 10");
+  await page.goto(`${SITE}/atendimento`);
+  await page.getByRole("button", { name: /Falar com a equipe/ }).waitFor();
+  step("mensagem operacional aprovada usada pelo atendimento", (await page.locator('[role="log"] li.self-start').last().textContent()).includes("Bem-vinda à Lumini"));
+  const before = await page.locator('[role="log"] li').count();
+  await page.getByRole("group", { name: "Respostas rápidas" }).getByRole("button", { name: /Falar com a equipe/ }).click();
+  await page.waitForFunction((n) => document.querySelectorAll('[role="log"] li').length >= n + 2, before);
+  step("encaminhamento web preserva orientação fixa para contato", (await page.locator('[role="log"] li.self-start').last().textContent()).includes("Fale com a clínica"));
+  await page.goto(`${SITE}/admin`);
+  await page.getByRole("button", { name: "Entrar com Google (stub)" }).click();
+  await page.getByRole("button", { name: "Site", exact: true }).click();
+  await page.getByRole("button", { name: "Salvar conteúdo do site" }).waitFor();
+  await page.getByLabel("Diferenciais").fill("Novo texto sintético ainda não revisado");
+  await page.getByRole("button", { name: "Salvar conteúdo do site" }).click();
+  await notice("Conteúdo do site salvo");
+  const withdrawn = await (await fetch(`${API}/api/public/site`)).json();
+  step("editar revoga publicação de toda revisão", withdrawn.faq.length === 0 && withdrawn.differentiators.length === 0);
 } catch (error) {
   step("roteiro", false, String(error).slice(0, 300));
 }

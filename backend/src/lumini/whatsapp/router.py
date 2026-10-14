@@ -25,6 +25,7 @@ from lumini.models import Conversation, IntegrationState
 from lumini.settings import Settings
 from lumini.whatsapp.bot import Channel, handle
 from lumini.whatsapp.conversations import parse_messages, record, set_connection_state
+from lumini.whatsapp.history import ConversationEvent
 
 logger = logging.getLogger(__name__)
 
@@ -144,6 +145,46 @@ class IntegrationsView(BaseModel):
     whatsapp: WhatsAppStatus
     calendar_configured: bool
     self_service_configured: bool
+
+
+class ConversationEventView(BaseModel):
+    kind: str
+    reason: str | None
+    version: int
+    summary: dict[str, str]
+    occurred_at: datetime
+
+
+@admin_router.get(
+    "/conversations/{conversation_id}/history", response_model=list[ConversationEventView]
+)
+async def conversation_history(
+    conversation_id: uuid.UUID, sessions: Sessions
+) -> list[ConversationEventView]:
+    try:
+        async with sessions() as session, session.begin():
+            rows = await session.scalars(
+                select(ConversationEvent)
+                .where(ConversationEvent.conversation_id == conversation_id)
+                .order_by(
+                    ConversationEvent.occurred_at.desc(),
+                    ConversationEvent.version.desc(),
+                    ConversationEvent.id.desc(),
+                )
+                .limit(100)
+            )
+            return [
+                ConversationEventView(
+                    kind=row.kind,
+                    reason=row.reason,
+                    version=row.version,
+                    summary=row.summary,
+                    occurred_at=row.occurred_at,
+                )
+                for row in rows
+            ]
+    except SQLAlchemyError:
+        raise HTTPException(503, "History unavailable", headers=NO_STORE) from None
 
 
 @admin_router.get("/integrations", response_model=IntegrationsView)

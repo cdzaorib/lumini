@@ -6,7 +6,6 @@ conversation: in human mode nothing automatic is sent (the team is talking).
 
 import uuid
 from datetime import datetime
-from typing import Any
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,7 +14,7 @@ from lumini.booking.dispatch import NotifierUnavailable
 from lumini.booking.links import manage_url
 from lumini.models import Booking, Contact, Conversation, Professional, Service
 from lumini.settings import Settings
-from lumini.site.service import deposit_instructions
+from lumini.site.service import approved_content
 from lumini.whatsapp import texts
 from lumini.whatsapp.conversations import conversation_for, send_automatic, set_mode
 from lumini.whatsapp.evolution import WhatsAppSender, WhatsAppUnavailable
@@ -82,7 +81,8 @@ class WhatsAppNotifier:
         if row is None:
             return "missing"
         booking, phone, service_name, content, professional_name = row
-        values: dict[str, Any] = {
+        site = await approved_content(self._session)
+        values: dict[str, str] = {
             "service": service_name,
             "professional": professional_name,
             "day": texts.day(booking.starts_at),
@@ -102,7 +102,7 @@ class WhatsAppNotifier:
                 return "no_aftercare"
             values["aftercare"] = "\n".join(f"• {item}" for item in items)
         if event == "deposit_instructions":
-            instructions = await deposit_instructions(self._session)
+            instructions = site.deposit_instructions
             if instructions:
                 values["instructions"] = instructions
         key = (
@@ -113,13 +113,15 @@ class WhatsAppNotifier:
         template = texts.NOTIFICATIONS.get(key)
         if template is None:
             return "unknown_event"
+        if key in texts.OPERATIONAL:
+            template = site.bot_texts.get(key, template)
         conversation_id = await self._conversation(phone)
         try:
             result = await send_automatic(
                 self._session,
                 self._sender,
                 conversation_id,
-                template.format(**values),
+                texts.render(template, values),
                 purpose=event,
                 dedupe_key=f"notify:{event}:{booking_id}",
                 now=self._now,

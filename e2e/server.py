@@ -14,6 +14,7 @@ from datetime import time as dtime
 from decimal import Decimal
 from pathlib import Path
 from urllib.parse import urlsplit
+from uuid import UUID
 
 BACKEND = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND))
@@ -100,7 +101,7 @@ def at(day: date, hour: int, minute: int = 0) -> datetime:
     return datetime.combine(day, dtime(hour, minute), tzinfo=CLINIC_TZ).astimezone(UTC)
 
 
-async def seed(calendar: FakeCalendar) -> None:
+async def seed(calendar: FakeCalendar) -> UUID:
     engine = create_async_engine(DB.replace("postgresql:", "postgresql+asyncpg:"))
     sessions = async_sessionmaker(engine, expire_on_commit=False)
     now = datetime.now(UTC)
@@ -180,18 +181,20 @@ async def seed(calendar: FakeCalendar) -> None:
         )
         await sync_calendar(session, calendar, past.id, now=earlier)
     await engine.dispose()
+    return person
 
 
 def main() -> None:
     asyncio.run(recreate_database())
     calendar = FakeCalendar()
-    asyncio.run(seed(calendar))
+    reviewer = asyncio.run(seed(calendar))
     settings = Settings(
         environment="development",
         database_url=SecretStr(DB),
         redis_url=SecretStr(REDIS_URL),
         google_client_id=CLIENT_ID,
         admin_emails=[EMAIL],
+        reviewer_assignments={EMAIL: [reviewer]},
         cors_origins=[SITE],
         manage_link_secret=SecretStr("e2e-synthetic-manage-link-secret-0123456789"),
         public_site_url=SITE,

@@ -21,9 +21,11 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import object_session
 
 from lumini.models import Conversation, IntegrationState, WhatsAppMessage
 from lumini.whatsapp.evolution import WhatsAppRejected, WhatsAppSender, WhatsAppUnavailable
+from lumini.whatsapp.history import remember
 
 HISTORY_CUTOFF = timedelta(hours=24)  # older webhook replays (history sync) are ignored
 SEND_GRACE = timedelta(seconds=60)  # longer than a send can take (client timeout ~18 s)
@@ -133,6 +135,9 @@ def set_mode(
     conversation.mode_reason = reason
     conversation.mode_changed_at = now
     conversation.version += 1
+    session = object_session(conversation)
+    if session is not None:
+        remember(session, conversation, mode, now, reason=reason)
 
 
 async def _send_in_flight(session: AsyncSession, conversation_id: uuid.UUID, now: datetime) -> bool:
@@ -301,6 +306,8 @@ async def send_automatic(
         )
         if existing is not None and existing.status in ("sent", "sending"):
             return "duplicate"
+        if existing is not None and keep_text and existing.status == "skipped":
+            return "skipped_stale"  # withdrawn reviewed content must never be resurrected
         if existing is None:
             existing = WhatsAppMessage(
                 id=uuid.uuid4(),
@@ -400,6 +407,27 @@ async def _settle_after_send(session: AsyncSession, outgoing_id: uuid.UUID, now:
 
 
 REPLY_RETRY_WINDOW = timedelta(minutes=30)
+
+
+async def discard_pending_replies(session: AsyncSession) -> None:
+    """Inside the content mutation's transaction, withdraw queued replies conservatively.
+
+    Responses can include approved catalog facts as well as site templates. A content or
+    credential change discards all failed/pending replies; the next client message uses the
+    current reviewed content. Bumping versions also invalidates replies still being generated.
+    Notifications are reconstructed from the current state. Modes remain unchanged.
+    """
+    await session.execute(update(Conversation).values(version=Conversation.version + 1))
+    await session.execute(
+        update(WhatsAppMessage)
+        .where(
+            WhatsAppMessage.direction == "out",
+            WhatsAppMessage.purpose == "reply",
+            WhatsAppMessage.status.in_(("failed", "pending")),
+            WhatsAppMessage.body.is_not(None),
+        )
+        .values(status="skipped", body=None)
+    )
 
 
 async def retry_failed_replies(

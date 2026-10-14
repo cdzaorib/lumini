@@ -70,7 +70,7 @@ export async function getCatalog(): Promise<PublicService[] | null> {
   if (!origin) return null;
   try {
     const response = await fetch(`${origin}/api/catalog/services`, {
-      next: { revalidate: 60 },
+      cache: "no-store",
       signal: AbortSignal.timeout(3000),
       redirect: "error",
     });

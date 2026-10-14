@@ -25,7 +25,9 @@ from lumini.models import Conversation, WhatsAppMessage
 from lumini.ratelimit import allow
 from lumini.resources import Resources
 from lumini.settings import Settings
+from lumini.site.service import approved_content
 from lumini.whatsapp import flow, texts
+from lumini.whatsapp.history import remember
 
 PREFIX = "web:"
 SESSION_TTL = timedelta(hours=24)
@@ -100,9 +102,11 @@ async def start(request: Request, session: Session, now: Now) -> ChatSession:
                     created_at=now,
                 )
             )
+        content = await approved_content(session)
+        menu = texts.customize_reply(texts.MENU, content.bot_texts)
     except SQLAlchemyError:
         raise _refuse(503, "chat_unavailable") from None
-    return ChatSession(token=token, replies=[texts.MENU], options=_options(texts.MENU))
+    return ChatSession(token=token, replies=[menu], options=_options(menu))
 
 
 async def session_token(
@@ -164,6 +168,14 @@ async def message(
                 raise _refuse(409, "stale")  # two messages at once: the page resends
             current.state = new_state
             current.version += 1
+            remember(
+                session.sync_session,
+                current,
+                "handoff" if reply.handoff is not None else "progress",
+                now,
+                reason=reply.handoff,
+                state=state if reply.handoff is not None else new_state,
+            )
     except SQLAlchemyError:
         raise _refuse(503, "chat_unavailable") from None
     return ChatReply(replies=[text], options=_options(text))
