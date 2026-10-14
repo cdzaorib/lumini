@@ -61,8 +61,16 @@ export default async function PrivacyPage() {
       </p>
       <h2>Cookies e estatísticas</h2>
       <p>
-        Este site não usa ferramentas de estatística nem de publicidade. Se forem adotadas, só serão ativadas com o seu
-        consentimento.
+        A medição de visitas pelo Plausible é opcional e só funciona depois de sua autorização em “Preferências de
+        privacidade”, no rodapé, e da configuração pela clínica. Você pode recusar ou revogar a autorização ali. A
+        escolha fica salva no armazenamento local deste navegador; não cria uma conta nem identifica você no nosso
+        sistema. Se esse armazenamento estiver bloqueado, a escolha vale somente para a aba atual.
+      </p>
+      <p>
+        A medição envia uma visita à página inicial, sem parâmetros da URL, e dados técnicos do navegador ao
+        fornecedor. Não envia nome, telefone, conteúdo do formulário, mensagens ou dados de reserva. Não ocorre no
+        painel, nas páginas de reserva, de atendimento ou de procedimentos. Ferramentas de publicidade permanecem
+        desativadas; sua ativação exigirá autorização independente e revisão desta política.
       </p>
     </LegalPage>
   );

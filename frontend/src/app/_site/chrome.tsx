@@ -2,7 +2,10 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { site, sitePreview } from "@/content/site";
+import { readAnalyticsDomain } from "@/lib/public/analytics";
 import { whatsappLink, type SiteContent } from "@/lib/public/site";
+
+import { AnalyticsConsent } from "./analytics-consent";
 
 export const container = "mx-auto w-[min(100%-2rem,1120px)]";
 const focus = "focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-lumini-rose";
@@ -32,7 +35,7 @@ export function SiteHeader() {
 export function SiteFooter({ content }: { content: SiteContent }) {
   return (
     <footer className="mt-20 border-t border-lumini-gold/40 text-sm text-lumini-muted">
-      <div className={`${container} flex flex-col gap-4 py-8 sm:flex-row sm:justify-between`}>
+      <div className={`${container} flex flex-col gap-4 py-8 sm:flex-row sm:flex-wrap sm:justify-between`}>
         <div className="flex flex-col gap-1">
           <span className="text-lumini-ink">{site.name}</span>
           <span>{site.region}</span>
@@ -52,6 +55,7 @@ export function SiteFooter({ content }: { content: SiteContent }) {
           <Link className={`underline hover:text-lumini-rose ${focus}`} href="/privacidade">Privacidade</Link>
           <Link className={`underline hover:text-lumini-rose ${focus}`} href="/termos">Termos e políticas</Link>
         </nav>
+        <AnalyticsConsent domain={readAnalyticsDomain(process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN)} />
       </div>
       <p className={`${container} pb-8 text-xs leading-relaxed`}>
         As informações deste site não substituem a avaliação de uma profissional habilitada. Conteúdo clínico revisado e

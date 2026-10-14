@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { readAdminConfig } from "@/lib/admin/config";
 import { readApiOrigin } from "@/lib/api-origin";
+import { readAnalyticsDomain } from "@/lib/public/analytics";
 
 const GOOGLE_GSI = "https://accounts.google.com/gsi/";
 
@@ -17,11 +18,16 @@ export function proxy(request: NextRequest) {
     ? readAdminConfig(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID, process.env.NEXT_PUBLIC_API_BASE_URL, process.env.NODE_ENV)?.apiOrigin
     : readApiOrigin(process.env.NEXT_PUBLIC_API_BASE_URL, process.env.NODE_ENV);
   const google = admin ? ` ${GOOGLE_GSI}` : "";
+  // Measurement is permitted only on the landing. The client additionally requires consent;
+  // no analytics endpoint is allowed on admin, booking, chat or procedure pages.
+  const analytics = request.nextUrl.pathname === "/" && readAnalyticsDomain(process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN)
+    ? " https://plausible.io/api/event"
+    : "";
   const policy = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${admin ? ` ${GOOGLE_GSI}client` : ""}${development ? " 'unsafe-eval'" : ""}`,
     `style-src 'self' 'unsafe-inline'${admin ? ` ${GOOGLE_GSI}style` : ""}`,
-    `connect-src 'self'${google}${apiOrigin ? ` ${apiOrigin}` : ""}`,
+    `connect-src 'self'${google}${apiOrigin ? ` ${apiOrigin}` : ""}${analytics}`,
     admin ? `frame-src ${GOOGLE_GSI}` : "frame-src 'none'",
     "img-src 'self' data:",
     "font-src 'self'",
