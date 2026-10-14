@@ -63,6 +63,27 @@ def test_only_prefixed_process_environment_is_loaded(
     assert Settings().environment == "test"
 
 
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "*",
+        "http://images.invalid",
+        "https://user:secret@images.invalid",
+        "https://images.invalid/path",
+        "https://images.invalid/?token=secret",
+    ],
+)
+def test_media_origins_reject_unsafe_configuration(origin: str) -> None:
+    with pytest.raises(ValidationError):
+        Settings(media_origins=[origin])
+
+
+def test_media_origins_normalize_and_deduplicate() -> None:
+    assert Settings(
+        media_origins=["https://images.invalid/", "https://images.invalid"]
+    ).media_origins == ["https://images.invalid"]
+
+
 def test_calendar_key_is_parsed_and_never_shown() -> None:
     raw = service_account_json()
     settings = Settings(google_calendar_credentials=SecretStr(raw))

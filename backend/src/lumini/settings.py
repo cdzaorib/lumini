@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     database_url: SecretStr | None = None
     redis_url: SecretStr | None = None
     cors_origins: list[str] = Field(default_factory=list)
+    media_origins: list[str] = Field(default_factory=list)
     dependency_timeout_seconds: float = Field(default=2.0, gt=0, le=10)
     google_client_id: str | None = Field(default=None, max_length=256)
     admin_emails: list[str] = Field(default_factory=list, repr=False)
@@ -42,8 +43,12 @@ class Settings(BaseSettings):
     ai_enabled: bool = False
     ai_base_url: str | None = Field(default=None, pattern=r"^https://[^\s/?#@]+(/[^\s?#@]*)?$")
     ai_api_key: SecretStr | None = None
+    ai_classifier_provider: Literal["openai", "jev"] = "openai"
     ai_classifier_model: str | None = Field(default=None, max_length=80)
     ai_writer_model: str | None = Field(default=None, max_length=80)
+    # Jev has its own structured API and credentials; no model name is assumed.
+    jev_api_key: SecretStr | None = None
+    jev_model: str | None = Field(default=None, min_length=1, max_length=80)
     # Uncalibrated defaults: calibrate with the synthetic benchmark before enabling.
     ai_high_confidence: float = Field(default=0.85, ge=0.5, le=1)
     ai_medium_confidence: float = Field(default=0.6, ge=0.3, le=1)
@@ -190,6 +195,25 @@ class Settings(BaseSettings):
                     "CORS requires explicit HTTP(S) origins without credentials or path"
                 )
         return [value.rstrip("/") for value in values]
+
+    @field_validator("media_origins")
+    @classmethod
+    def validate_media_origins(cls, values: list[str]) -> list[str]:
+        result: list[str] = []
+        for value in values:
+            url = urlsplit(value.strip())
+            if (
+                url.scheme != "https"
+                or not url.hostname
+                or url.username
+                or url.password
+                or url.path not in {"", "/"}
+                or url.query
+                or url.fragment
+            ):
+                raise ValueError("media_origins requires explicit HTTPS origins")
+            result.append(f"https://{url.netloc}")
+        return list(dict.fromkeys(result))
 
     def calendar_service_account(self) -> dict[str, Any] | None:
         if self.google_calendar_credentials is None:

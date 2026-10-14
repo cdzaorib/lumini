@@ -1,13 +1,14 @@
 """Classifier and writer over an OpenAI-compatible model. Returns None on any doubt."""
 
 import json
+import time
 import uuid
 from typing import Protocol
 
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lumini.ai.client import AIUnavailable, ChatClient, Completion
+from lumini.ai.client import AIUnavailable, CallObservation, CallObserver, ChatClient, Completion
 from lumini.ai.contracts import Answer, AnswerRequest, Classification, ClassifyRequest
 from lumini.ai.guardrails import safe_answer
 from lumini.ai.redaction import leaks
@@ -38,11 +39,58 @@ class Assistant(Protocol):
     async def answer(self, session: AsyncSession | None, request: AnswerRequest) -> str | None: ...
 
 
+class Classifier(Protocol):
+    async def classify(
+        self, session: AsyncSession | None, request: ClassifyRequest
+    ) -> Classification | None: ...
+
+
+class SplitAssistant:
+    """Jev classifies, the existing generative adapter writes. Neither owns product rules."""
+
+    def __init__(self, classifier: Classifier, writer: Assistant) -> None:
+        self._classifier = classifier
+        self._writer = writer
+
+    async def classify(
+        self, session: AsyncSession | None, request: ClassifyRequest
+    ) -> Classification | None:
+        return await self._classifier.classify(session, request)
+
+    async def answer(self, session: AsyncSession | None, request: AnswerRequest) -> str | None:
+        return await self._writer.answer(session, request)
+
+
+class FallbackAssistant:
+    """Explicit benchmark candidate only. Runtime does not construct a fallback automatically."""
+
+    def __init__(self, primary: Assistant, fallback: Assistant) -> None:
+        self._primary = primary
+        self._fallback = fallback
+
+    async def classify(
+        self, session: AsyncSession | None, request: ClassifyRequest
+    ) -> Classification | None:
+        result = await self._primary.classify(session, request)
+        return result if result is not None else await self._fallback.classify(session, request)
+
+    async def answer(self, session: AsyncSession | None, request: AnswerRequest) -> str | None:
+        result = await self._primary.answer(session, request)
+        return result if result is not None else await self._fallback.answer(session, request)
+
+
 class ModelAssistant:
-    def __init__(self, client: ChatClient, classifier_model: str, writer_model: str) -> None:
+    def __init__(
+        self,
+        client: ChatClient,
+        classifier_model: str,
+        writer_model: str,
+        observer: CallObserver | None = None,
+    ) -> None:
         self._client = client
         self._classifier = classifier_model
         self._writer = writer_model
+        self._observer = observer
 
     async def _call(
         self,
@@ -53,11 +101,34 @@ class ModelAssistant:
         user: str,
         tokens: int,
     ) -> Completion | None:
+        started = time.monotonic()
         try:
             completion = await self._client.complete(model, system, user, max_tokens=tokens)
         except AIUnavailable:
+            if self._observer:
+                self._observer(
+                    CallObservation(
+                        purpose,
+                        model,
+                        "unavailable",
+                        int((time.monotonic() - started) * 1000),
+                        None,
+                        None,
+                    )
+                )
             await _account(session, purpose, model, "unavailable", None)
             return None
+        if self._observer:
+            self._observer(
+                CallObservation(
+                    purpose,
+                    model,
+                    "ok",
+                    completion.latency_ms,
+                    completion.prompt_tokens,
+                    completion.completion_tokens,
+                )
+            )
         await _account(session, purpose, model, "ok", completion)
         return completion
 
@@ -130,18 +201,32 @@ async def _account(
         )
 
 
-def build_assistant(settings: Settings) -> ModelAssistant | None:
+def build_assistant(settings: Settings, observer: CallObserver | None = None) -> Assistant | None:
     """Only when explicitly enabled after the minimization evaluation (ADR-007/018)."""
     if (
         not settings.ai_enabled
         or settings.ai_base_url is None
         or settings.ai_api_key is None
-        or settings.ai_classifier_model is None
         or settings.ai_writer_model is None
     ):
         return None
-    return ModelAssistant(
+    if settings.ai_classifier_provider == "openai" and settings.ai_classifier_model is None:
+        return None
+    writer = ModelAssistant(
         ChatClient(settings.ai_base_url, settings.ai_api_key.get_secret_value()),
-        settings.ai_classifier_model,
+        settings.ai_classifier_model or settings.ai_writer_model,
         settings.ai_writer_model,
+        observer,
+    )
+    if settings.ai_classifier_provider == "openai":
+        return writer
+    if settings.jev_api_key is None or settings.jev_model is None:
+        return None
+    from lumini.ai.jev import JevClassifier, JevClient
+
+    return SplitAssistant(
+        JevClassifier(
+            JevClient(settings.jev_api_key.get_secret_value()), settings.jev_model, observer
+        ),
+        writer,
     )

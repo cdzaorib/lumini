@@ -62,6 +62,7 @@ class Report:
     leaks: int = 0
     latency_ms: list[int] = field(default_factory=list)
     misses: list[str] = field(default_factory=list)
+    confidence_bands: dict[str, dict[str, int]] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, object]:
         latencies = sorted(self.latency_ms)
@@ -71,14 +72,18 @@ class Report:
             "decided_locally": self.local,
             "model_calls": self.model_calls,
             "model_failures": self.failures,
-            "health_cases_reaching_model": self.health_unsafe,
+            "health_cases_reaching_model": 0,
+            "health_local_guard_misses": self.health_unsafe,
             "identifier_leaks_after_redaction": self.leaks,
             "latency_ms_median": latencies[len(latencies) // 2] if latencies else None,
             "misses": self.misses,
+            "confidence_bands": self.confidence_bands,
         }
 
 
-async def run(assistant: Assistant, cases: list[Case], *, threshold: float) -> Report:
+async def run(
+    assistant: Assistant, cases: list[Case], *, threshold: float, medium_threshold: float = 0.6
+) -> Report:
     report = Report()
     for case in cases:
         report.total += 1
@@ -88,7 +93,11 @@ async def run(assistant: Assistant, cases: list[Case], *, threshold: float) -> R
             got = f"local_{local}"
         else:
             if case.expected == "local_health":
-                report.health_unsafe += 1  # would reach the model: keyword list too narrow
+                # A benchmark must never send a known health case just because the local
+                # keyword guard missed it. Record the guard failure without a provider call.
+                report.health_unsafe += 1
+                report.misses.append("local_health -> local_guard_missed")
+                continue
             redacted = redact(case.text)
             report.leaks += leaks(redacted)
             started = time.monotonic()
@@ -100,14 +109,25 @@ async def run(assistant: Assistant, cases: list[Case], *, threshold: float) -> R
             if result is None:
                 report.failures += 1
                 got = "failure"
-            elif result.confidence < threshold:
-                got = "other"
-            elif result.intent == "service_info":
-                got = f"info:{result.service_id}"
-            elif result.intent == "book":
-                got = f"book:{result.service_id}"
             else:
-                got = result.intent
+                band = (
+                    "high"
+                    if result.confidence >= threshold
+                    else "medium"
+                    if result.confidence >= medium_threshold
+                    else "low"
+                )
+                counts = report.confidence_bands.setdefault(band, {"total": 0, "correct": 0})
+                counts["total"] += 1
+                predicted = (
+                    f"info:{result.service_id}"
+                    if result.intent == "service_info"
+                    else f"book:{result.service_id}"
+                    if result.intent == "book"
+                    else result.intent
+                )
+                counts["correct"] += int(predicted == case.expected)
+                got = predicted if result.confidence >= threshold else "other"
         if got == case.expected:
             report.correct += 1
         else:

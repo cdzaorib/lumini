@@ -30,6 +30,21 @@ class Completion:
     completion_tokens: int | None
 
 
+@dataclass(frozen=True)
+class CallObservation:
+    """Benchmark-only metadata. No request, response text or conversation identifiers."""
+
+    purpose: str
+    model: str
+    outcome: str
+    latency_ms: int
+    input_tokens: int | None
+    output_tokens: int | None
+
+
+CallObserver = Callable[[CallObservation], None]
+
+
 class ChatClient:
     def __init__(
         self,
@@ -82,7 +97,7 @@ class ChatClient:
             body = json.loads(raw)
             choice = body["choices"][0]
             if choice.get("finish_reason") not in (None, "stop"):
-                raise _unavailable(f"finish_{choice.get('finish_reason')}"[:40])
+                raise _unavailable("finish_incomplete")
             content = json.loads(choice["message"]["content"])
             usage = body.get("usage") or {}
         except AIUnavailable:
@@ -94,8 +109,10 @@ class ChatClient:
         return Completion(
             content=content,
             latency_ms=int((time.monotonic() - started) * 1000),
-            prompt_tokens=usage.get("prompt_tokens") if isinstance(usage, dict) else None,
-            completion_tokens=usage.get("completion_tokens") if isinstance(usage, dict) else None,
+            prompt_tokens=_tokens(usage.get("prompt_tokens")) if isinstance(usage, dict) else None,
+            completion_tokens=(
+                _tokens(usage.get("completion_tokens")) if isinstance(usage, dict) else None
+            ),
         )
 
     async def complete(self, model: str, system: str, user: str, *, max_tokens: int) -> Completion:
@@ -105,3 +122,7 @@ class ChatClient:
 def _unavailable(code: str) -> AIUnavailable:
     logger.warning("ai unavailable: %s", code)
     return AIUnavailable(code)
+
+
+def _tokens(value: object) -> int | None:
+    return value if type(value) is int and value >= 0 else None
