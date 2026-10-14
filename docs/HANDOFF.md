@@ -47,3 +47,7 @@ Regras permanentes em AGENTS; contratos em API-ADMIN; ADR-020–023 registram de
 ## Auditoria de conclusão T14b
 
 Retomada automática conferiu `main` limpa em e8b841a, sem processos de teste ativos. Railway continua `USER_NOT_LOGGED_IN`, Supabase continua sem Lumini e inventário CUA permanece vazio. Escolha da organização Supabase foi solicitada ao usuário porque o contrato do conector a exige antes de consultar custo; não há resposta que autorize assumir essa escolha. Auditoria independente corrigiu dois rótulos que tratavam indevidamente IA/analytics como opcionais. Requisitos reais/critério de prova registrados em LANCAMENTO; **objetivo integral ainda não comprovado**.
+
+## Bloqueio externo confirmado — T14c
+
+Terceira rodada consecutiva do objetivo confirmou as mesmas dependências: Railway desconectado, Supabase sem projeto Lumini/escolha de organização respondida e nenhum navegador disponível. `main` dafab23 estava limpa e sincronizada; CI da auditoria **38579628267 success**, sem processos locais de teste. Não há operação de lançamento executável sem conexão/insumos reais. O objetivo integral deve ficar **bloqueado**, nunca marcado concluído por frontend protegido/testes sintéticos. Para retomar: responder à escolha da organização Supabase e conectar Railway/navegador; seguir PENDENCIAS/DEPLOY, mantendo todos os requisitos obrigatórios e as autorizações já concedidas.
