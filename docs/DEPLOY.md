@@ -47,7 +47,7 @@ Variáveis realmente lidas pelo frontend (as marcadas pendentes **não foram pre
 | `LUMINI_SITE_PUBLIC` | Production e Preview | Configurada: indexação fechada até critérios de `LANCAMENTO.md` |
 | `LUMINI_API_INTERNAL_URL` | Servidor Next, opcional | Não configurada; só usar URL comprovadamente acessível pela Vercel, sem credenciais. Uma URL privada Railway não é acessível automaticamente pela Vercel |
 | `LUMINI_MEDIA_ORIGINS` | Servidor Next/build | JSON de origens HTTPS do storage/CDN da clínica; igual à allowlist backend. Ausente = fotos ocultas. Não contém chave nem query; Next não segue redirects |
-| `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | Public config do frontend | Opcional, domínio cadastrado no Plausible pela clínica; sem conta/valor = medição desligada. Só `/`, com consentimento explícito |
+| `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | Public config do frontend | Pendente: domínio cadastrado no Plausible pela clínica, necessário para completar analytics; sem conta/valor = medição provisoriamente desligada. Só `/`, com consentimento explícito |
 
 `NODE_ENV` é gerenciado pela plataforma. `NEXT_TELEMETRY_DISABLED` é opcional para ferramentas de build, não funcionalidade. Não adicionar `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` ou `SUPABASE_SERVICE_ROLE_KEY`: não são usadas nesta arquitetura. Nenhuma URL de banco, Redis, chave de agenda ou Evolution pertence à Vercel.
 

@@ -13,7 +13,7 @@ O escopo é o texto integral aprovado em `PLANO-ORIGINAL.md`. Preservar **Python
 - **Apenas preparado:** Railway API/worker/Redis; banco Supabase exclusivo; Google/WhatsApp/IA/storage/analytics reais. Meta Pixel só parser de configuração, **sem runtime/tag**; ativação futura depende de campanha/contrato/consentimento separado.
 - **Mock/sintético:** identidade Google, Google Calendar, Evolution, IA e dados dos testes. Nenhuma chamada autenticada real desses fornecedores; nenhum conteúdo/credencial clínica verificado por um teste fake.
 
-A afirmação antiga de que todo código estava pronto foi corrigida pela auditoria. As lacunas foram implementadas e revisadas; não apresentar a entrega local como produto clínico lançado.
+A afirmação antiga de que todo código estava pronto foi corrigida pela auditoria. Lacunas locais foram implementadas e revisadas; o plano integral ainda exige integrações reais, incluindo **Jev, DeepSeek, seleção de fallback e analytics**. Manter IA/medição desligadas até cumprir os gates não dispensa essas entregas. Não apresentar a entrega local como produto clínico lançado.
 
 ## Pendências exatas e próximo passo
 
@@ -43,3 +43,7 @@ O deploy explícito por commit GitHub funciona. O contexto Git Vercel não lista
 - Leia `PLANO.md`, `PLANO-ORIGINAL.md`, `DECISOES.md`, `TAREFAS.md`, `LANCAMENTO.md`, `DEPLOY.md` e `PENDENCIAS.md`; conferir Git/processos. Desenvolvimento sintético e publicação previamente autorizados, compra/upgrade não. Migração remota explícita só após banco dedicado/vazio, Data API desligada e conexão TLS comprovada; nunca rodar suites de integração/E2E contra produção.
 
 Regras permanentes em AGENTS; contratos em API-ADMIN; ADR-020–023 registram decisões desta retomada. Histórico anterior em VALIDACAO-001–008. TAREFAS/HANDOFF devem ser atualizados a cada tarefa concluída ou bloqueada.
+
+## Auditoria de conclusão T14b
+
+Retomada automática conferiu `main` limpa em e8b841a, sem processos de teste ativos. Railway continua `USER_NOT_LOGGED_IN`, Supabase continua sem Lumini e inventário CUA permanece vazio. Escolha da organização Supabase foi solicitada ao usuário porque o contrato do conector a exige antes de consultar custo; não há resposta que autorize assumir essa escolha. Auditoria independente corrigiu dois rótulos que tratavam indevidamente IA/analytics como opcionais. Requisitos reais/critério de prova registrados em LANCAMENTO; **objetivo integral ainda não comprovado**.

@@ -230,3 +230,7 @@ Commits de código: `0532dc2`, `48ed326`, `342b77b`, enviados sem force. Gitleak
 ## 2026-10-14 — T14 lançamento: tarefas externas pendentes
 
 Registro final em `PENDENCIAS.md`, com conexão Railway, organização/custo Supabase, navegador para dashboards, Google/Evolution/insumos clínicos, políticas/retenção/backups/piloto/IA e Git Vercel/domínio. Fontes públicas antigas consultadas read-only não fornecem credencial/aprovação clínica. Nenhuma infraestrutura de outro produto, compra, conta de provedor, migração remota, sinal automático, publicação de conteúdo não revisado ou substituição do Base44. Handoff atualizado com processos encerrados e próximo passo executável; produto permanece protegido e parcialmente publicado até satisfazer esses itens.
+
+## 2026-10-14 — T14b auditoria de fidelidade e revalidação de bloqueios
+
+Objetivo integral conferido contra PLANO-ORIGINAL/LANCAMENTO e estado atual: main e8b841a limpa, Railway novamente `USER_NOT_LOGGED_IN`, Supabase sem Lumini, navegador sem superfícies. Revisão independente identificou redução documental indevida ao dizer IA “se habilitada” e analytics “opcional”: corrigidos PENDENCIAS/DEPLOY/HANDOFF, com critérios reais por requisito em LANCAMENTO. Jev/DeepSeek/fallback e analytics continuam entregas exigidas; desligamento é gate provisório. Organização Supabase solicitada ao usuário conforme contrato do conector, sem resposta presumida e sem consulta/criação/custo aceito automaticamente. Nenhum teste repetido ou alteração de código; nenhuma integração remota pode ser marcada concluída.

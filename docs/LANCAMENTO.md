@@ -33,3 +33,21 @@ Estado atualizado em 2026-10-14, retomada T12/T13. GitHub/CI e frontend protegid
 | Segurança | Pronto (local) / Pendente | `SEGURANCA.md`, teste de rotas; revisão independente sobre o ambiente publicado pendente |
 | Piloto interno | Pendente | Após integrações reais: equipe usa o fluxo completo com clientes de teste |
 | Aprovação final e substituição do Base44 | Pendente | `LUMINI_SITE_PUBLIC=true` e `LUMINI_SITE_STAGE=production` só após todos os itens acima |
+
+## Auditoria do objetivo integral — T14b
+
+O plano não é concluído por testes sintéticos ou por frontend protegido. Jev/DeepSeek/fallback e analytics são entregas aprovadas; consentimento facultativo da cliente não torna analytics uma feature dispensada. IA desligada é gate provisório de minimização/benchmark.
+
+| Requisito do plano integral | Evidência que provaria conclusão | Estado atual |
+|---|---|---|
+| §§2/14: FastAPI, worker, PostgreSQL e Redis de produção | Serviços Lumini exclusivos saudáveis, banco migrado, fila/beat reais e fluxo frontend→API→banco/worker | Frontend/GitHub reais; backend e infraestrutura remota ausentes |
+| §§6/7/14: dois calendários, reserva 2h, sinal humano, alteração e reconciliação | Ensaio sintético controlado nos calendários reais das duas profissionais, concorrência/idempotência e reparo de mudanças | Código/testes locais; contas/calendários reais ausentes |
+| §§8/14: Evolution e atendimento humano confiável | PoC de número de teste, eco/manual/reentrega, pausa e #bot autorizado, queda/reconexão | Simulado; instância/número/credenciais ausentes |
+| §§5/14: Jev, DeepSeek, privacidade, confiança e fallback | Modelos autenticados verificados, benchmark comparativo sintético com qualidade/segurança/latência/custo, minimização validada e fallback escolhido | Adaptadores/bancada; integração/benchmark reais não executados |
+| §§10/12/14: analytics após consentimento | Conta/domínio da clínica, evento controlado no fornecedor depois do aceite, nenhuma chamada sem aceite/recusa/revogação ou em páginas sensíveis | Cliente/interceptação local; fornecedor real não configurado |
+| §§9/10/16: conteúdo, profissionais, valores, mídia | Credenciais verificadas e matriz/conteúdo/material aprovado pelas profissionais no painel, storage real e autorizações | Ferramentas locais; insumos/revisão clínica reais ausentes |
+| §§12/15: políticas e retenção | Política aprovada, retenções distintas e consentimentos revisados, sem transcrição indiscriminada | Mecanismos locais; política clínica/jurídica pendente |
+| §§14/15: backup, acessibilidade/desempenho, piloto e aprovação final | Backup remoto restaurado em destino separado; revisão publicada/leitor de tela/métricas; piloto das profissionais e aprovação registrada | Ensaio/testes locais; verificações remotas/humanas pendentes |
+| §§1/14/15: lançamento conjunto e Base44 | Fluxo completo real, domínio/origens válidas, conteúdo e gates aprovados, troca de entrada verificada | Frontend protegido parcial; Base44 preservado |
+
+Nenhum requisito remoto/humano acima é marcado concluído. Não criar novos projetos ou ampliar escopo apenas para simular movimento diante dos acessos pendentes.
